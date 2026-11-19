@@ -56,7 +56,7 @@ npm run dev      # http://localhost:5173
 npm run build    # static site in dist/
 ```
 
-The build is a plain static site with relative paths, so `dist/` can be hosted anywhere. A GitHub Pages workflow is included (`.github/workflows/deploy.yml`): enable Pages with source **GitHub Actions** in the repository settings and every push to `main` deploys.
+The build is a plain static site with relative paths, so `dist/` can be hosted anywhere. It is set up for **Netlify** (`netlify.toml`): import the repository in Netlify and every push to `main` deploys.
 
 ## Code map
 
