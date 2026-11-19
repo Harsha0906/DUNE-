@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Glasswind</title>
+  <meta name="description" content="Glasswind: survive the singing sands of Oshar. A low-poly open-world desert survival game." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='30' fill='%23e8a15c'/><path d='M8 44 Q24 30 36 40 T60 36 V60 H8Z' fill='%238c4a32'/><path d='M30 10 L36 26 L30 34 L24 26Z' fill='%238fe9ff'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <div id="vignette"></div>
+    <div id="stormVeil"></div>
+    <div id="compass"><div id="compassStrip"></div><div id="compassNeedle"></div></div>
+    <div id="topLeft">
+      <div id="clock"><span id="clockIcon">☀</span> <span id="clockText">08:00</span></div>
+      <div id="stormWarn" class="hidden">SANDSTORM</div>
+    </div>
+    <div id="toasts"></div>
+    <div id="tremor" class="hidden"><div id="tremorArrow">▲</div><div id="tremorText">TREMORS</div></div>
+
+    <div id="vitals">
+      <div class="bar"><span class="lbl">WATER</span><div class="track"><div id="waterFill" class="fill water"></div></div><span id="waterNum" class="num">100</span></div>
+      <div class="bar"><span class="lbl">HEALTH</span><div class="track"><div id="healthFill" class="fill health"></div></div><span id="healthNum" class="num">100</span></div>
+      <div class="bar vib"><span class="lbl">NOISE</span><div class="track"><div id="noiseFill" class="fill noise"></div></div><span id="noiseTag" class="num">QUIET</span></div>
+    </div>
+
+    <div id="rightPanel">
+      <div id="cargo">
+        <div class="cargoItem"><span class="gem">◆</span> <span id="shardCount">0</span><span class="dim"> / <span id="shardGoal">20</span></span><div class="sub">SUNGLASS</div></div>
+        <div class="cargoItem"><span class="stakeIco">⟟</span> <span id="stakeCount">2</span><div class="sub">THRUM STAKES</div></div>
+      </div>
+      <canvas id="minimap" width="180" height="180"></canvas>
+    </div>
+
+    <div id="prompt" class="hidden"><div id="promptKey">E</div><div id="promptText">Harvest</div><div id="promptRing"><div id="promptRingFill"></div></div></div>
+    <div id="crosshair"></div>
+    <div id="vehicleHud" class="hidden"><span id="speedNum">0</span><span class="unit">KM/H</span><div id="boostTag">BOOST</div></div>
+    <div id="flash"></div>
+  </div>
+
+  <div id="menu" class="screen">
+    <div class="menuInner">
+      <div class="kicker">A DESERT SURVIVAL EXPEDITION</div>
+      <h1>GLASSWIND</h1>
+      <p class="tag">The sands of Oshar sing. Something beneath them listens.</p>
+      <div class="buttons">
+        <button id="btnPlay" class="primary">Begin expedition</button>
+        <button id="btnHow">How to play</button>
+        <button id="btnSettings">Settings</button>
+      </div>
+      <div class="foot">Best with headphones · Click the world to capture the mouse</div>
+    </div>
+  </div>
+
+  <div id="howPanel" class="screen panel hidden">
+    <div class="menuInner wide">
+      <h2>Field manual</h2>
+      <div class="cols">
+        <div>
+          <h3>Your contract</h3>
+          <p>Harvest <b><span class="goalN">20</span> shards of sunglass</b>, the glowing blue crystals that grow in open sand. Then reach the <b>signal beacon</b>, the orange light pillar to the south-east, and call your lift.</p>
+          <h3>Stay alive</h3>
+          <p>Water drains fast under the sun. Refill at <b>dew condensers</b> on the rock mesas and scavenge <b>supply caches</b>. Night is cool and kind to your water.</p>
+          <h3>The Veil Ray</h3>
+          <p>A ray the size of a cathedral swims under the dunes and hunts by <b>vibration</b>. Running, harvesting and the skimmer's engine all make noise. When the ground boils beneath you, <b>sprint</b>. It cannot reach you on <b>rock</b>. Sandstorms muffle your footsteps.</p>
+          <p>Plant a <b>thrum stake</b> to lure it away.</p>
+        </div>
+        <div>
+          <h3>Controls</h3>
+          <table class="keys">
+            <tr><td>W A S D</td><td>Move / steer</td></tr>
+            <tr><td>Mouse</td><td>Look (click to capture)</td></tr>
+            <tr><td>Shift</td><td>Sprint / boost</td></tr>
+            <tr><td>C or Ctrl</td><td>Sneak (quiet)</td></tr>
+            <tr><td>Space</td><td>Jump</td></tr>
+            <tr><td>E (hold)</td><td>Harvest / use / drink</td></tr>
+            <tr><td>F</td><td>Board or leave the skimmer</td></tr>
+            <tr><td>Q</td><td>Plant a thrum stake</td></tr>
+            <tr><td>M</td><td>Toggle large map</td></tr>
+            <tr><td>Esc</td><td>Pause</td></tr>
+          </table>
+        </div>
+      </div>
+      <button class="back">Back</button>
+    </div>
+  </div>
+
+  <div id="settingsPanel" class="screen panel hidden">
+    <div class="menuInner">
+      <h2>Settings</h2>
+      <label class="row">Graphics
+        <select id="setQuality"><option value="high">High (bloom, sharp shadows)</option><option value="low">Performance</option></select>
+      </label>
+      <label class="row">Mouse sensitivity <input id="setSens" type="range" min="0.3" max="2.5" step="0.1" value="1" /></label>
+      <label class="row">Volume <input id="setVol" type="range" min="0" max="1" step="0.05" value="0.8" /></label>
+      <label class="row">Music <input id="setMusic" type="checkbox" checked /></label>
+      <label class="row">Invert look <input id="setInvert" type="checkbox" /></label>
+      <button class="back">Back</button>
+    </div>
+  </div>
+
+  <div id="pause" class="screen hidden">
+    <div class="menuInner">
+      <h2>Paused</h2>
+      <div class="buttons">
+        <button id="btnResume" class="primary">Resume</button>
+        <button id="btnPauseHow">How to play</button>
+        <button id="btnPauseSettings">Settings</button>
+        <button id="btnQuit">Abandon expedition</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="endScreen" class="screen hidden">
+    <div class="menuInner">
+      <div class="kicker" id="endKicker">EXPEDITION FAILED</div>
+      <h2 id="endTitle">The sands took you</h2>
+      <p id="endText" class="tag"></p>
+      <div id="endStats"></div>
+      <div class="buttons"><button id="btnRetry" class="primary">Try again</button><button id="btnMenu">Main menu</button></div>
+    </div>
+  </div>
+
+  <div id="bigMap" class="hidden"><canvas id="bigMapCanvas" width="560" height="560"></canvas><div class="legend"><span class="lg you">▲ You</span><span class="lg bea">● Beacon</span><span class="lg con">● Condenser</span><span class="lg ski">■ Skimmer</span></div></div>
+
+  <div id="loading" class="screen"><div class="menuInner"><div class="kicker">SHAPING THE DUNES</div><div class="loader"></div></div></div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

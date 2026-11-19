@@ -1,0 +1,26 @@
+{
+  "name": "glasswind",
+  "version": "0.1.0",
+  "description": "Glasswind: a low-poly desert-planet survival game in Three.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Harsha0906/DUNE-.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Harsha0906/DUNE-/issues"
+  },
+  "homepage": "https://github.com/Harsha0906/DUNE-#readme",
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  },
+  "private": true,
+  "type": "module"
+}
