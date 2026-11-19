@@ -342,15 +342,26 @@ function plantStake() {
   if (isRock(x, z)) { hud.toast('Stakes only carry through sand.', '', 2000); return; }
   G.stakes--;
   const m = place(createStake(), x, z, -0.2);
-  stakes.push({ mesh: m, position: new THREE.Vector3(x, m.position.y, z), life: 16, id: Math.random() });
+  stakes.push({ mesh: m, position: new THREE.Vector3(x, m.position.y, z), life: 16, id: Math.random(), kind: 'stake' });
   audio.stake();
   hud.toast('Thrum stake planted. It will pound the sand for 16 seconds.', '', 2600);
 }
 
-function onStrike(point, radius) {
-  G.shake = 1.4;
+function onBreach(point, display) {
   const p = G.mounted ? skimmer.position : player.position;
   const d = Math.hypot(p.x - point.x, p.z - point.y);
+  if (display) {
+    if (!G.sawDisplay) { G.sawDisplay = true; hud.toast('Far off, the Veil Ray leaps from the sand. It is the size of a cathedral.', 'warn', 5000); }
+    G.shake = Math.max(G.shake, 0.25);
+    return;
+  }
+  // a near miss plays out in slow motion
+  if (d > 10.5 && d < 70) { G.slowmo = 1.1; audio.stinger?.(); }
+}
+function onStrike(point, radius) {
+  const p = G.mounted ? skimmer.position : player.position;
+  const d = Math.hypot(p.x - point.x, p.z - point.y);
+  G.shake = Math.max(G.shake, clamp(1.6 - d / 70, 0.2, 1.6));
   if (d < radius && !isRock(p.x, p.z)) {
     killPlayer();
     return;
@@ -547,7 +558,7 @@ function updatePlay(dt) {
   G.noise = noise;
   if (noise > 0) {
     const vel = G.mounted ? skimmer.velocity : player.velocity;
-    creature.hear({ position: src.position, velocity: vel, kind: 'player' }, src.position.x, src.position.z, noise, dt, storm);
+    creature.hear({ position: src.position, velocity: vel, kind: 'player' }, src.position.x, src.position.z, noise, dt, storm, 1 - sky.sunUp);
   }
   for (let i = stakes.length - 1; i >= 0; i--) {
     const s = stakes[i];
@@ -555,10 +566,10 @@ function updatePlay(dt) {
     s.mesh.userData.head.position.y = 1.25 + Math.abs(Math.sin(G.time * 10)) * 0.25;
     if (Math.random() < dt * 6) particles.emit(s.position.x, s.position.y + 0.2, s.position.z, (Math.random() - 0.5) * 3, 2, (Math.random() - 0.5) * 3, { life: 0.8, size: 0.7, gravity: -6 });
     if (s.life <= 0) { scene.remove(s.mesh); stakes.splice(i, 1); continue; }
-    creature.hear(s, s.position.x, s.position.z, 1.15, dt, storm);
+    creature.hear(s, s.position.x, s.position.z, 1.15, dt, storm, 1 - sky.sunUp);
   }
 
-  creature.update(dt, { player: src.position, storm, onStrike, onSlam });
+  creature.update(dt, { player: src.position, storm, night: 1 - sky.sunUp, onStrike, onSlam, onBreach });
   if (creature.heardFlash > 0.99) hud.toast(G.stakes >= 0 && stakes.length ? 'Something takes the bait...' : 'The sand trembles. It heard you.', 'warn', 3000);
   if (creature.state === 'warn' && creature.stateTime < 0.05) G.shake = Math.max(G.shake, 0.6);
 
@@ -653,13 +664,16 @@ function updateHUD() {
 let frames = 0;
 function frame() {
   requestAnimationFrame(frame);
-  const dt = Math.min(clock.getDelta(), 1 / 20);
+  const rawDt = Math.min(clock.getDelta(), 1 / 20);
+  G.slowmo = Math.max(0, (G.slowmo || 0) - rawDt);
+  const timeScale = G.slowmo > 0.3 ? 0.3 : 1 - 0.7 * (G.slowmo / 0.3);
+  const dt = rawDt * timeScale;
   const t = clock.elapsedTime;
   const playing = G.mode === 'play';
 
   if (playing) updatePlay(dt);
   if (G.mode === 'menu') {
-    creature.update(dt, { player: new THREE.Vector3(0, 0, 0), storm: 0, onStrike: () => {}, onSlam: () => {} });
+    creature.update(dt, { player: new THREE.Vector3(0, 0, 0), storm: 0, night: 0, onStrike: () => {}, onSlam: () => {} });
     menuCamera(dt);
   } else if (G.mode !== 'pause') {
     updateCamera(dt, playing);

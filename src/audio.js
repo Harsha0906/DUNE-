@@ -142,10 +142,10 @@ export class Audio {
   harvest() { this.noiseBurst({ freq: 2400, q: 4, vol: 0.05, dur: 0.12 }); }
   stake() { this.tone(70, { type: 'square', vol: 0.2, dur: 0.25, slide: -30 }); this.noiseBurst({ freq: 200, vol: 0.2, dur: 0.2, type: 'lowpass' }); }
   alert() { this.tone(110, { type: 'sawtooth', vol: 0.1, dur: 0.9, slide: -40 }); this.tone(116, { type: 'sawtooth', vol: 0.08, dur: 0.9, slide: -40 }); }
-  breach() {
-    this.noiseBurst({ freq: 180, type: 'lowpass', vol: 0.9, dur: 2.2, attack: 0.05 });
-    this.noiseBurst({ freq: 1200, vol: 0.4, dur: 1.4, attack: 0.02 });
-    this.tone(45, { type: 'sine', vol: 0.6, dur: 2, slide: -20 });
+  breach(power = 1) {
+    this.noiseBurst({ freq: 180, type: 'lowpass', vol: 0.9 * power, dur: 2.2, attack: 0.05 });
+    this.noiseBurst({ freq: 1200, vol: 0.4 * power, dur: 1.4, attack: 0.02 });
+    this.tone(45, { type: 'sine', vol: 0.6 * power, dur: 2, slide: -20 });
   }
   roar() { this.tone(90, { type: 'sawtooth', vol: 0.25, dur: 1.6, slide: -50 }); this.tone(133, { type: 'sawtooth', vol: 0.12, dur: 1.4, slide: -70 }); }
   ui() { this.tone(660, { type: 'triangle', vol: 0.06, dur: 0.12 }); }
