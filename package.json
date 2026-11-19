@@ -1,7 +1,7 @@
 {
-  "name": "glasswind",
+  "name": "dunes",
   "version": "0.1.0",
-  "description": "Glasswind: a low-poly desert-planet survival game in Three.js",
+  "description": "DUNES: a low-poly desert-planet survival game in Three.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

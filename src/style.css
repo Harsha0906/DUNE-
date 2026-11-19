@@ -194,3 +194,8 @@ body.touch #toasts { top: 260px; }
 }
 @media (max-width: 700px) { body.touch #toasts { top: 300px; } body.touch.playing #rightPanel { top: 270px; } }
 @media (max-width: 700px) { body.touch.playing #rightPanel { top: 92px; right: 12px; } }
+
+/* title logo: wide geometric letters with a sun-baked sand gradient and heat glow */
+h1.logo { font-family: 'Michroma', var(--display); font-weight: 400; font-size: clamp(44px, 12vw, 128px); letter-spacing: 0.32em; padding-left: 0.32em;
+  background: linear-gradient(180deg, #fff6e2 0%, #f6cf8e 38%, #e08a3e 62%, #9c4a22 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 18px rgba(255, 150, 70, 0.35)) drop-shadow(0 6px 2px rgba(60, 20, 5, 0.35)); }
