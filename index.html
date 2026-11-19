@@ -21,7 +21,10 @@
     <div id="topLeft">
       <div id="clock"><span id="clockIcon">☀</span> <span id="clockText">08:00</span></div>
       <div id="stormWarn" class="hidden">SANDSTORM</div>
+      <div id="objective"><div id="objMain"></div><div id="objSub"></div></div>
     </div>
+    <div id="chapterCard"><div id="chapterNum" class="kicker">CHAPTER I</div><div id="chapterTitle">The Outpost</div><div id="chapterText"></div></div>
+    <div id="loreCard"><div class="kicker">ECHO TABLET</div><div id="loreTitle"></div><div id="loreText"></div></div>
     <div id="toasts"></div>
     <div id="tremor" class="hidden"><div id="tremorArrow">▲</div><div id="tremorText">TREMORS</div></div>
 
@@ -103,6 +106,16 @@
       <label class="row">Music <input id="setMusic" type="checkbox" checked /></label>
       <label class="row">Invert look <input id="setInvert" type="checkbox" /></label>
       <button class="back">Back</button>
+    </div>
+  </div>
+
+  <div id="bench" class="screen panel hidden">
+    <div class="menuInner wide">
+      <div class="kicker">OUTPOST WORKBENCH</div>
+      <h2>Trade sunglass for gear</h2>
+      <p class="benchNote">Water refilled. You carry <b>◆ <span id="benchShards">0</span></b> sunglass. The beacon needs <b>20</b> on hand when you call the lift, so spend with care.</p>
+      <div id="benchList"></div>
+      <button id="benchClose" class="primary back">Back to the sands</button>
     </div>
   </div>
 

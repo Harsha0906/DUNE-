@@ -279,3 +279,83 @@ export function createBoulder(rand, color = '#7a4630') {
   m.rotation.set(rand() * 0.4, rand() * Math.PI, rand() * 0.4);
   return m;
 }
+
+// ---------------- ruins of the glass-singers ----------------
+export function createRuin(rand, kind) {
+  const g = new THREE.Group();
+  const stone = mat('#b59a78');
+  const stoneD = mat('#8c7356');
+  const glyphM = new THREE.MeshStandardMaterial({ color: '#8fe9ff', emissive: '#29b6ff', emissiveIntensity: 1.6 });
+  // a cracked stone floor: the safe ground
+  const floor = mesh(new THREE.CylinderGeometry(9, 9.6, 1.2, 10), stoneD);
+  floor.position.y = 0.2; g.add(floor);
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    if (rand() < 0.3) continue;
+    const h = 2 + rand() * 7;
+    const col = mesh(new THREE.CylinderGeometry(0.55, 0.65, h, 7), stone);
+    col.position.set(Math.cos(a) * 7.5, h / 2 + 0.6, Math.sin(a) * 7.5);
+    col.rotation.z = (rand() - 0.5) * 0.15;
+    g.add(col);
+    if (h > 6 && rand() < 0.6) {
+      const cap = mesh(new THREE.BoxGeometry(1.6, 0.5, 1.6), stoneD);
+      cap.position.set(col.position.x, h + 0.85, col.position.z); g.add(cap);
+    }
+  }
+  if (kind === 'arch' || kind === 'dome') {
+    const arch = mesh(new THREE.TorusGeometry(5, 0.7, 6, 12, Math.PI), stone);
+    arch.position.y = 0.6; arch.rotation.y = rand() * Math.PI; g.add(arch);
+  }
+  if (kind === 'dome') {
+    const dome = mesh(new THREE.SphereGeometry(6, 10, 6, 0, Math.PI * 1.3, 0, Math.PI / 2), stone);
+    dome.material = mat('#b59a78', { side: THREE.DoubleSide });
+    dome.position.y = 0.4; dome.rotation.y = rand() * 6; g.add(dome);
+  }
+  // fallen colossal head of a glass-singer, half buried
+  if (kind === 'head') {
+    const head = mesh(new THREE.IcosahedronGeometry(4, 0), stone);
+    head.scale.set(1, 1.25, 1); head.position.set(-3, 1.5, 3); head.rotation.set(0.6, 0.4, 1.2); g.add(head);
+    const eye = mesh(new THREE.OctahedronGeometry(0.6, 0), glyphM, false); eye.position.set(-1.2, 3.2, 5.2); g.add(eye);
+  }
+  // the echo tablet
+  const tablet = new THREE.Group();
+  const slab = mesh(new THREE.BoxGeometry(2.2, 3.2, 0.5), stoneD); slab.position.y = 2.2; tablet.add(slab);
+  const glyph = mesh(new THREE.TorusKnotGeometry(0.45, 0.08, 40, 5, 2, 3), glyphM, false); glyph.position.set(0, 2.4, 0.3); tablet.add(glyph);
+  tablet.position.set(0, 0, -2);
+  g.add(tablet);
+  g.userData = { tablet, glyph, glyphM };
+  return g;
+}
+
+export function createWreck() {
+  const g = new THREE.Group();
+  const s = createSkimmer();
+  s.rotation.set(0.5, 0.8, 2.6);
+  s.position.y = 0.4;
+  s.traverse((o) => { if (o.material && o.material.emissive) { o.material = o.material.clone(); o.material.emissiveIntensity = 0; } });
+  g.add(s);
+  const crate = mesh(new THREE.BoxGeometry(1.4, 0.9, 1), mat('#5a6b5f')); crate.position.set(2.5, 0.3, 1); crate.rotation.y = 0.5; g.add(crate);
+  const cellM = new THREE.MeshStandardMaterial({ color: '#7ff6ff', emissive: '#3fe0ff', emissiveIntensity: 2.5 });
+  const cell = mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.8, 8), cellM, false);
+  cell.position.set(2.5, 1.2, 1); cell.rotation.z = Math.PI / 2; g.add(cell);
+  g.userData = { cell };
+  return g;
+}
+
+export function createLift() {
+  const g = new THREE.Group();
+  const hull = mesh(new THREE.CylinderGeometry(3, 5, 4, 8), mat('#d8d2c4', { metalness: 0.4, roughness: 0.4 }));
+  g.add(hull);
+  const top = mesh(new THREE.ConeGeometry(3, 3, 8), mat('#c2452d')); top.position.y = 3.5; g.add(top);
+  const glowM = new THREE.MeshStandardMaterial({ color: '#7ff6ff', emissive: '#3fe0ff', emissiveIntensity: 3 });
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    const pod = mesh(new THREE.CylinderGeometry(0.8, 1, 2, 8), mat('#3b3633'));
+    pod.position.set(Math.cos(a) * 5.5, -1, Math.sin(a) * 5.5); g.add(pod);
+    const jet = mesh(new THREE.CylinderGeometry(0.7, 0.3, 0.4, 8), glowM, false);
+    jet.position.set(Math.cos(a) * 5.5, -2.2, Math.sin(a) * 5.5); g.add(jet);
+    const arm = mesh(new THREE.BoxGeometry(5, 0.4, 0.8), mat('#3b3633'));
+    arm.position.set(Math.cos(a) * 3.5, -0.5, Math.sin(a) * 3.5); arm.rotation.y = -a; g.add(arm);
+  }
+  return g;
+}

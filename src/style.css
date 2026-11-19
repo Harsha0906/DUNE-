@@ -134,3 +134,28 @@ input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent); }
 #boostBar { width: 160px; height: 4px; margin: 4px auto 0; background: rgba(255,255,255,0.15); }
 #boostFill { height: 100%; width: 100%; background: var(--glass); box-shadow: 0 0 8px var(--glass); }
 .vhint { font-size: 11px; letter-spacing: 0.2em; color: var(--dim); margin-top: 6px; text-transform: uppercase; }
+
+#objective { margin-top: 12px; background: var(--panel); padding: 8px 12px; border-left: 3px solid var(--glass); max-width: 340px; }
+#objMain { font-weight: 700; font-size: 17px; letter-spacing: 0.04em; }
+#objSub { font-size: 13px; color: var(--dim); margin-top: 2px; }
+#objective:has(#objMain:empty) { display: none; }
+.cmark.obj { color: #fff; top: 4px; font-size: 18px; text-shadow: 0 0 8px #fff; }
+#chapterCard, #loreCard { position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%); text-align: center; opacity: 0; pointer-events: none; width: min(640px, 90vw); }
+#chapterCard.show { animation: cardIn 5.5s ease forwards; }
+#chapterTitle { font-family: var(--display); font-size: clamp(34px, 6vw, 64px); font-weight: 800; letter-spacing: 0.08em; margin: 6px 0;
+  background: linear-gradient(180deg, #fff3da 10%, #f2b56b 70%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+#chapterText { font-size: 19px; color: #f3e6d2; }
+#loreCard { top: 30%; background: rgba(18, 10, 6, 0.72); padding: 18px 24px; border-top: 2px solid var(--glass); border-bottom: 2px solid var(--glass); }
+#loreCard.show { animation: cardIn 9s ease forwards; }
+#loreCard .kicker { color: var(--glass); }
+#loreTitle { font-family: var(--display); font-size: 26px; margin: 6px 0; }
+#loreText { font-size: 19px; line-height: 1.45; font-style: italic; color: #f3e6d2; }
+@keyframes cardIn { 0% { opacity: 0; transform: translate(-50%, -40%); } 10% { opacity: 1; transform: translate(-50%, -50%); } 80% { opacity: 1; } 100% { opacity: 0; } }
+.benchNote { font-size: 17px; color: #f3e6d2; }
+#benchList { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 16px; }
+button.up { min-width: 0; clip-path: none; text-transform: none; letter-spacing: 0; text-align: left; display: grid; gap: 4px; padding: 14px 16px; border-radius: 2px; }
+button.up:disabled { opacity: 0.45; cursor: default; transform: none; }
+button.up.owned { opacity: 1; border-color: var(--glass); background: rgba(143, 233, 255, 0.08); }
+.upName { font-family: var(--display); font-size: 18px; }
+.upDesc { font-weight: 500; font-size: 15px; color: #f3e6d2; }
+.upCost { font-size: 15px; color: var(--glass); letter-spacing: 0.1em; }

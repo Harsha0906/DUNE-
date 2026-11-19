@@ -20,11 +20,13 @@ import { ParticlePool, StormField } from './particles.js';
 import { HUD, bearing } from './hud.js';
 import {
   createShard, createCondenser, createBeacon, createCache, createStake, createRibcage, createBoulder,
+  createRuin, createWreck, createLift,
 } from './models.js';
+import { UPGRADES, TABLETS, CHAPTERS } from './story.js';
 import { mulberry32, clamp, smoothstep } from './noise.js';
 
 const GOAL = 20;
-const MAX_STAKES = 4;
+let MAX_STAKES = 4;
 const $ = (id) => document.getElementById(id);
 
 // ---------------------------------------------------------------- settings
@@ -158,6 +160,37 @@ for (let i = 0, n = 0; i < 4000 && n < 170; i++) {
   place(tent, -8, 6, 1.4).rotation.y = 0.4;
 }
 
+// ruins of the glass-singers: stone floors the ray cannot strike through
+const ruins = [];
+{
+  const kinds = ['arch', 'dome', 'head', 'arch', 'dome'];
+  for (let i = 0; i < TABLETS.length; i++) {
+    let pos;
+    for (let k = 0; k < 60; k++) {
+      pos = randomSand(160);
+      if (ruins.every((r) => Math.hypot(r.pos.x - pos[0], r.pos.z - pos[1]) > 260)) break;
+    }
+    const m = place(createRuin(rand, kinds[i]), pos[0], pos[1], -0.6);
+    m.rotation.y = rand() * 6;
+    const tp = m.userData.tablet.getWorldPosition(new THREE.Vector3());
+    ruins.push({ mesh: m, pos: m.position.clone(), tabletPos: tp, read: false, idx: i });
+  }
+}
+// the crashed skimmer that holds your power cell
+const wreckPos = (() => {
+  for (let i = 0; i < 400; i++) {
+    const a = rand() * Math.PI * 2, r = 120 + rand() * 60;
+    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (rockMask(x, z) < 0.01 && rockMask(x + 8, z) < 0.01 && rockMask(x, z + 8) < 0.01) return new THREE.Vector3(x, heightAt(x, z), z);
+  }
+  return new THREE.Vector3(130, heightAt(130, 0), 0);
+})();
+const wreck = place(createWreck(), wreckPos.x, wreckPos.z, -0.3);
+const lift = createLift();
+lift.visible = false;
+scene.add(lift);
+const isSafe = (x, z) => isRock(x, z) || ruins.some((r) => Math.hypot(r.pos.x - x, r.pos.z - z) < 9.5);
+
 // planted thrum stakes
 const stakes = [];
 
@@ -170,6 +203,7 @@ const G = {
   interact: null, holdProgress: 0, charged: false, extracting: false,
   shake: 0, hurtFlash: 0, thirstWarned: false, shelterHint: false, mapOpen: false,
   days: 0, lastTimeOfDay: 0,
+  chapter: 0, maxWater: 100, upgrades: new Set(), cellFound: false, extractT: 0, tabletsRead: 0,
 };
 
 const cam = { yaw: Math.PI, pitch: 0.28, dist: 6.5, idle: 0, pos: new THREE.Vector3(), focus: new THREE.Vector3(), land: 0 };
@@ -179,6 +213,12 @@ function resetGame() {
   G.mounted = false; G.stormLevel = 0; G.stormActive = false; G.stormClock = 150; G.stormWarned = false;
   G.interact = null; G.holdProgress = 0; G.charged = false; G.extracting = false; G.thirstWarned = false; G.shelterHint = false;
   G.days = 0;
+  G.chapter = -1; G.maxWater = 100; G.upgrades = new Set(); G.cellFound = false; G.extractT = 0; G.tabletsRead = 0;
+  MAX_STAKES = 4;
+  player.stats.noise = 1; skimmer.stats.noise = 1;
+  for (const r of ruins) { r.read = false; r.mesh.userData.glyphM.emissiveIntensity = 1.6; }
+  wreck.userData.cell.visible = true;
+  lift.visible = false;
   player.reset(0, 0);
   skimmer.reset(14, 10, Math.PI * 0.75);
   creature.reset();
@@ -203,7 +243,7 @@ function setBeaconCharged(on) {
 }
 
 // ---------------------------------------------------------------- UI wiring
-const screens = ['menu', 'howPanel', 'settingsPanel', 'pause', 'endScreen', 'loading'];
+const screens = ['menu', 'howPanel', 'settingsPanel', 'pause', 'endScreen', 'loading', 'bench'];
 let returnTo = 'menu';
 function showScreen(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
 document.querySelectorAll('.goalN').forEach((e) => { e.textContent = GOAL; });
@@ -219,6 +259,7 @@ $('btnResume').onclick = () => resume();
 $('btnQuit').onclick = () => { audio.ui(); toMenu(); };
 $('btnRetry').onclick = () => { audio.ui(); startGame(); };
 $('btnMenu').onclick = () => { audio.ui(); toMenu(); };
+$('benchClose').onclick = () => closeBench();
 
 $('setQuality').value = settings.quality;
 $('setSens').value = settings.sens;
@@ -245,10 +286,74 @@ function startGame() {
   showScreen(null);
   hud.show(true);
   input.lock();
-  hud.toast('You are a glass-runner on Oshar. The lift leaves without you if you are not on the beacon.', '', 6000);
-  setTimeout(() => G.mode === 'play' && hud.toast(`Harvest ${GOAL} sunglass shards. Their blue glow shows in the dunes.`, 'good', 5500), 2500);
-  setTimeout(() => G.mode === 'play' && hud.toast('Walk softly. Something under the sand listens for footsteps.', 'warn', 5500), 6500);
+  setChapter(0);
+  setTimeout(() => G.mode === 'play' && hud.toast('Walk softly. Something under the sand listens for footsteps.', 'warn', 5500), 7000);
 }
+function setChapter(n) {
+  if (G.chapter === n) return;
+  G.chapter = n;
+  const c = CHAPTERS[n];
+  $('chapterNum').textContent = `CHAPTER ${['I', 'II', 'III', 'IV'][n]}`;
+  $('chapterTitle').textContent = c.title;
+  $('chapterText').textContent = c.intro;
+  const card = $('chapterCard');
+  card.classList.remove('show'); void card.offsetWidth; card.classList.add('show');
+  audio.chapter?.();
+}
+
+function objectiveText() {
+  switch (G.chapter) {
+    case 0: return ['Drink at the outpost condenser', 'Hold E under the awning'];
+    case 1: return ['Recover the power cell', 'From the crashed skimmer (white marker)'];
+    case 2: return [`Gather sunglass: ${G.shards} / ${GOAL}`, `Echo tablets read: ${G.tabletsRead} / ${TABLETS.length} · Spend sunglass on gear at condensers`];
+    case 3: if (!G.extracting && G.shards < GOAL) return [`Gather sunglass: ${G.shards} / ${GOAL}`, 'You spent some at the workbench'];
+      return G.extracting ? [`Hold the beacon: ${Math.ceil(G.extractT)}s`, 'Stay close. The lift is coming.'] : ['Reach the beacon and call the lift', 'Follow the cyan light pillar'];
+    default: return ['', ''];
+  }
+}
+
+function openBench(c) {
+  G.mode = 'bench';
+  G.ignoreUnlock = true; input.unlock(); G.ignoreUnlock = false;
+  renderBench();
+  showScreen('bench');
+}
+function renderBench() {
+  $('benchShards').textContent = G.shards;
+  $('benchList').innerHTML = UPGRADES.map((u) => {
+    const owned = G.upgrades.has(u.id);
+    const can = !owned && G.shards >= u.cost;
+    return `<button class="up ${owned ? 'owned' : ''}" data-id="${u.id}" ${can ? '' : 'disabled'}>
+      <span class="upName">${u.name}</span><span class="upDesc">${u.desc}</span>
+      <span class="upCost">${owned ? 'Equipped' : `◆ ${u.cost}`}</span></button>`;
+  }).join('');
+  $('benchList').querySelectorAll('button.up').forEach((b) => { b.onclick = () => buyUpgrade(b.dataset.id); });
+}
+function buyUpgrade(id) {
+  const u = UPGRADES.find((x) => x.id === id);
+  if (!u || G.upgrades.has(id) || G.shards < u.cost) return;
+  G.shards -= u.cost;
+  G.upgrades.add(id);
+  applyUpgrades();
+  audio.pickup();
+  renderBench();
+}
+function applyUpgrades() {
+  const has = (id) => G.upgrades.has(id);
+  G.maxWater = has('flasks') ? 150 : 100;
+  player.stats.noise = has('wraps') ? 0.6 : 1;
+  skimmer.stats.noise = has('baffles') ? 0.65 : 1;
+  MAX_STAKES = has('satchel') ? 6 : 4;
+  if (has('satchel') && !G.satchelGiven) { G.stakes = Math.min(MAX_STAKES, G.stakes + 2); G.satchelGiven = true; }
+  if (G.shards < GOAL && G.charged) setBeaconCharged(false);
+}
+function closeBench() {
+  audio.ui();
+  G.mode = 'play';
+  showScreen(null);
+  input.lock();
+}
+
 function pause() {
   if (G.mode !== 'play') return;
   G.mode = 'pause';
@@ -286,6 +391,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
     if (G.mode === 'play' && !input.locked) pause();
     else if (G.mode === 'pause') resume();
+    else if (G.mode === 'bench') closeBench();
   }
 });
 
@@ -297,9 +403,11 @@ function nearestInteract() {
   if (G.mounted) return null;
   for (const s of shards) if (!s.taken) { const d = s.pos.distanceTo(p); if (d < 3.4) consider(d, { kind: 'shard', ref: s, label: 'Harvest sunglass', time: 1.3 }); }
   for (const c of caches) if (!c.taken) { const d = c.pos.distanceTo(p); if (d < 3) consider(d, { kind: 'cache', ref: c, label: 'Open supply cache', time: 0.8 }); }
-  for (const c of condensers) { const d = Math.hypot(c.pos.x - p.x, c.pos.z - p.z); if (d < 5) consider(d + 2, { kind: 'condenser', ref: c, label: 'Drink from condenser', time: 1.2 }); }
+  for (const c of condensers) { const d = Math.hypot(c.pos.x - p.x, c.pos.z - p.z); if (d < 5) consider(d + 2, { kind: 'condenser', ref: c, label: G.chapter >= 2 ? 'Drink and open workbench' : 'Drink from condenser', time: 1.0 }); }
+  for (const r of ruins) if (!r.read) { const d = Math.hypot(r.tabletPos.x - p.x, r.tabletPos.z - p.z); if (d < 4) consider(d, { kind: 'tablet', ref: r, label: 'Read the echo tablet', time: 1.5 }); }
+  if (!G.cellFound) { const d = Math.hypot(wreckPos.x - p.x, wreckPos.z - p.z); if (d < 5) consider(d, { kind: 'cell', label: 'Pull the power cell', time: 2 }); }
   const db = Math.hypot(beaconPos.x - p.x, beaconPos.z - p.z);
-  if (db < 9) consider(db, G.charged ? { kind: 'beacon', label: 'Call the lift', time: 4 } : { kind: 'beaconLocked', label: `Beacon needs ${GOAL - G.shards} more sunglass`, time: Infinity });
+  if (db < 9 && !G.extracting) consider(db, G.shards >= GOAL ? { kind: 'beacon', label: 'Call the lift', time: 3 } : { kind: 'beaconLocked', label: `Beacon needs ${GOAL - G.shards} more sunglass`, time: Infinity });
   return best;
 }
 
@@ -310,27 +418,52 @@ function completeInteract(it) {
       G.shards++;
       audio.pickup();
       particles.burst(it.ref.pos.x, it.ref.pos.y + 1, it.ref.pos.z, 30, 3, { color: '#8fe9ff', life: 1.2, size: 0.5, gravity: -2, alpha: 1 });
-      if (G.shards === GOAL) {
+      if (G.shards >= GOAL && !G.charged) {
         setBeaconCharged(true);
-        hud.toast('The beacon is charged. Follow the cyan light pillar and call your lift!', 'good', 7000);
-      } else hud.toast(`Sunglass ${G.shards} / ${GOAL}`, 'good', 1800);
+        if (G.chapter === 2) setChapter(3);
+      } else if (G.shards < GOAL) hud.toast(`Sunglass ${G.shards} / ${GOAL}`, 'good', 1800);
       break;
     case 'cache':
       it.ref.taken = true; it.ref.mesh.visible = false;
-      G.water = Math.min(100, G.water + 40);
+      G.water = Math.min(G.maxWater, G.water + 40);
       G.health = Math.min(100, G.health + 15);
       audio.drink();
       if (G.stakes < MAX_STAKES && Math.random() < 0.6) { G.stakes++; hud.toast('Cache: water flask and a thrum stake', 'good'); } else hud.toast('Cache: water flask (+40 water)', 'good');
       break;
     case 'condenser':
-      G.water = 100;
+      G.water = G.maxWater;
       audio.drink();
       if (G.stakes < 2 && it.ref.stakeCooldown <= 0) { G.stakes = 2; it.ref.stakeCooldown = 120; hud.toast('Water refilled. Restocked thrum stakes.', 'good'); } else hud.toast('Water refilled', 'good', 1800);
+      if (G.chapter === 0) setChapter(1);
+      else if (G.chapter >= 2) openBench(it.ref);
+      break;
+    case 'tablet': {
+      const r = it.ref;
+      r.read = true; G.tabletsRead++;
+      r.mesh.userData.glyphM.emissiveIntensity = 0.2;
+      audio.chapter?.();
+      G.shards += 2;
+      $('loreTitle').textContent = TABLETS[r.idx].title;
+      $('loreText').textContent = TABLETS[r.idx].text;
+      const lc = $('loreCard'); lc.classList.remove('show'); void lc.offsetWidth; lc.classList.add('show');
+      hud.toast('The tablet held two shards of sunglass (+2)', 'good', 2500);
+      if (G.shards >= GOAL && !G.charged) { setBeaconCharged(true); if (G.chapter === 2) setChapter(3); }
+      break;
+    }
+    case 'cell':
+      G.cellFound = true;
+      wreck.userData.cell.visible = false;
+      audio.pickup();
+      hud.toast('Power cell recovered. Your skimmer will fly again (F to board).', 'good', 4500);
+      setChapter(2);
       break;
     case 'beacon':
+      setChapter(3);
       G.extracting = true;
-      $('flash').style.opacity = 1;
-      endGame(true, 'Lifted off Oshar', `You carried ${G.shards} shards of sunglass out of the singing sands.`);
+      G.extractT = 45;
+      G.stormActive = true; G.stormDur = 50;
+      audio.alert();
+      hud.toast('The beacon screams into the sky. Every ray for miles can hear it. Hold on!', 'warn', 6000);
       break;
   }
 }
@@ -362,7 +495,7 @@ function onStrike(point, radius) {
   const p = G.mounted ? skimmer.position : player.position;
   const d = Math.hypot(p.x - point.x, p.z - point.y);
   G.shake = Math.max(G.shake, clamp(1.6 - d / 70, 0.2, 1.6));
-  if (d < radius && !isRock(p.x, p.z)) {
+  if (d < radius && !isSafe(p.x, p.z)) {
     killPlayer();
     return;
   }
@@ -379,7 +512,7 @@ function onStrike(point, radius) {
 function onSlam(x, z) {
   G.shake = Math.max(G.shake, 0.8);
   const p = G.mounted ? skimmer.position : player.position;
-  if (Math.hypot(p.x - x, p.z - z) < 8 && !isRock(p.x, p.z)) killPlayer();
+  if (Math.hypot(p.x - x, p.z - z) < 8 && !isSafe(p.x, p.z)) killPlayer();
 }
 function killPlayer() {
   player.mesh.visible = false;
@@ -404,6 +537,8 @@ function toggleMount() {
     player.facing = skimmer.yaw;
     cam.dist = 7;
     audio.mount();
+  } else if (!skimmer.destroyed && player.position.distanceTo(skimmer.position) < 4.5 && !G.cellFound) {
+    hud.toast('The skimmer is dead. Its power cell was in the crashed skimmer.', '', 3000);
   } else if (!skimmer.destroyed && player.position.distanceTo(skimmer.position) < 4.5) {
     G.mounted = true;
     G.savedDistance = player.distance;
@@ -554,6 +689,7 @@ function updatePlay(dt) {
   const storm = G.stormLevel;
   const src = G.mounted ? skimmer : player;
   let noise = G.mounted ? skimmer.noise : player.noise;
+  if (!G.mounted && isSafe(player.position.x, player.position.z)) noise = 0;
   if (harvesting && !player.onRock) noise = Math.max(noise, 0.45);
   G.noise = noise;
   if (noise > 0) {
@@ -575,7 +711,8 @@ function updatePlay(dt) {
 
   // survival
   const sheltered = !G.mounted && condensers.some((c) => Math.hypot(c.pos.x - player.position.x, c.pos.z - player.position.z) < 6);
-  const drain = (0.28 + sky.heat * 0.42 + (player.sprinting && !G.mounted ? 0.3 : 0) + storm * 0.3) * (G.mounted ? 0.75 : 1) * (sheltered ? 0.3 : 1);
+  const cloak = G.upgrades.has('cloak');
+  const drain = (0.28 + sky.heat * 0.42 + (player.sprinting && !G.mounted ? 0.3 : 0) + storm * (cloak ? 0.1 : 0.3)) * (G.mounted ? 0.75 : 1) * (sheltered ? 0.3 : 1);
   G.water = Math.max(0, G.water - drain * dt);
   if (G.water <= 0) {
     G.health -= 3 * dt;
@@ -583,8 +720,31 @@ function updatePlay(dt) {
   } else if (G.water > 25 && G.health < 100) G.health = Math.min(100, G.health + 0.9 * dt);
   if (G.water > 20) G.thirstWarned = false;
   if (storm > 0.6 && !sheltered && !G.mounted) {
-    G.health -= 0.6 * dt;
+    G.health -= (cloak ? 0.18 : 0.6) * dt;
     if (!G.shelterHint) { G.shelterHint = true; hud.toast('The storm flays your skin. Shelter under a condenser awning.', 'warn', 4000); }
+  }
+  // extraction countdown
+  if (G.extracting) {
+    const db = Math.hypot(beaconPos.x - player.position.x, beaconPos.z - player.position.z);
+    const near = !G.mounted && db < 14;
+    if (near) G.extractT -= dt;
+    else if (!G.awayWarned) { G.awayWarned = true; hud.toast('Get back to the beacon! The lift will not land without you.', 'warn', 3000); }
+    if (near) G.awayWarned = false;
+    G.stormActive = true; G.stormDur = Math.max(G.stormDur, 5);
+    // the ray circles the mesa, drawn by the beacon's song
+    if (creature.state === 'roam' || creature.state === 'search') { creature.target.set(beaconPos.x + 60, beaconPos.z); creature.displayTimer = Math.min(creature.displayTimer, 12); }
+    if (G.extractT < 12) {
+      lift.visible = true;
+      const k = Math.max(0, G.extractT / 12);
+      lift.position.set(beaconPos.x + 4, beaconPos.y + 3 + k * 120, beaconPos.z + 4);
+      lift.rotation.y += dt * 0.3;
+      if (Math.random() < 0.5) particles.burst(beaconPos.x + 4, beaconPos.y + 0.5, beaconPos.z + 4, 4, 8, { life: 1.5, size: 2, gravity: -2, alpha: 0.5 });
+    }
+    if (G.extractT <= 0) {
+      $('flash').style.opacity = 1;
+      setTimeout(() => { $('flash').style.opacity = 0; }, 900);
+      endGame(true, 'Lifted off Oshar', `You carried ${G.shards} shards of sunglass out of the singing sands and read ${G.tabletsRead} of ${TABLETS.length} echo tablets.`);
+    }
   }
   if (G.health <= 0) {
     G.health = 0;
@@ -596,7 +756,9 @@ function updatePlay(dt) {
 
 function updateHUD() {
   const p = G.mounted ? skimmer.position : player.position;
-  hud.style('waterFill', 'width', `${G.water.toFixed(1)}%`);
+  hud.style('waterFill', 'width', `${(G.water / G.maxWater * 100).toFixed(1)}%`);
+  const [objA, objB] = objectiveText();
+  hud.set('objMain', objA); hud.set('objSub', objB);
   hud.style('healthFill', 'width', `${G.health.toFixed(1)}%`);
   hud.set('waterNum', Math.ceil(G.water));
   hud.set('healthNum', Math.ceil(G.health));
@@ -619,13 +781,14 @@ function updateHUD() {
   const heading = bearing(Math.sin(cam.yaw), Math.cos(cam.yaw));
   const marks = {
     beacon: { b: bearing(beaconPos.x - p.x, beaconPos.z - p.z), cls: 'bea', icon: '◆' },
+    ...(G.chapter === 1 ? { wreck: { b: bearing(wreckPos.x - p.x, wreckPos.z - p.z), cls: 'obj', icon: '✦' } } : {}),
   };
   let best = null, bd = Infinity;
   for (const c of condensers) { const d = Math.hypot(c.pos.x - p.x, c.pos.z - p.z); if (d < bd && d > 8) { bd = d; best = c; } }
   if (best) marks.con = { b: bearing(best.pos.x - p.x, best.pos.z - p.z), cls: 'con', icon: '💧' };
   if (!G.mounted && !skimmer.destroyed) marks.ski = { b: bearing(skimmer.position.x - p.x, skimmer.position.z - p.z), cls: 'ski', icon: '▣' };
   const rayB = bearing(creature.pos.x - p.x, creature.pos.y - p.z);
-  const hunting = ['hunt', 'warn'].includes(creature.state) && creature.distanceTo < 300;
+  const hunting = (['hunt', 'warn'].includes(creature.state) && creature.distanceTo < 300) || (G.upgrades.has('sense') && creature.distanceTo < 500);
   if (hunting) marks.ray = { b: rayB, cls: 'ray', icon: '≋' };
   hud.compass(heading, marks);
   const rel = Math.atan2(Math.sin(rayB - heading), Math.cos(rayB - heading));
@@ -653,6 +816,8 @@ function updateHUD() {
   const pois = [];
   for (const c of condensers) pois.push({ x: c.pos.x, z: c.pos.z, r: 4, color: '#45c4ff' });
   pois.push({ x: beaconPos.x, z: beaconPos.z, r: 6, color: G.charged ? '#7ff6ff' : '#ff9a3c' });
+  for (const r of ruins) pois.push({ x: r.pos.x, z: r.pos.z, r: 4.5, color: r.read ? '#9c8a70' : '#f3e6c4', square: true });
+  if (!G.cellFound) pois.push({ x: wreckPos.x, z: wreckPos.z, r: 4, color: '#ffffff' });
   if (!skimmer.destroyed && !G.mounted) pois.push({ x: skimmer.position.x, z: skimmer.position.z, r: 3.5, color: '#ffffff', square: true });
   for (const s of stakes) pois.push({ x: s.position.x, z: s.position.z, r: 3, color: '#ff9a3c' });
   for (const s of shards) if (!s.taken && Math.hypot(s.pos.x - p.x, s.pos.z - p.z) < 90) pois.push({ x: s.pos.x, z: s.pos.z, r: 2.5, color: '#8fe9ff' });
@@ -727,4 +892,4 @@ requestAnimationFrame(() => {
 });
 
 // expose for debugging / automated checks
-window.__glasswind = { G, player, skimmer, creature, sky, startGame, camera, tracks, scene, terrainUniforms };
+window.__glasswind = { G, player, skimmer, creature, sky, startGame, camera, tracks, scene, terrainUniforms, ruins, wreckPos, condensers, beaconPos, nearestInteract, completeInteract };
