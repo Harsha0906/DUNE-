@@ -159,3 +159,4 @@ button.up.owned { opacity: 1; border-color: var(--glass); background: rgba(143, 
 .upName { font-family: var(--display); font-size: 18px; }
 .upDesc { font-weight: 500; font-size: 15px; color: #f3e6d2; }
 .upCost { font-size: 15px; color: var(--glass); letter-spacing: 0.1em; }
+.credits { margin-top: 10px; color: var(--dim); font-size: 12px; letter-spacing: 0.05em; }

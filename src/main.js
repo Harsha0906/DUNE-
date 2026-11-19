@@ -278,9 +278,14 @@ $('setMusic').onchange = (e) => { settings.music = e.target.checked; saveSetting
 $('setInvert').onchange = (e) => { settings.invert = e.target.checked; saveSettings(); applySettings(); };
 
 canvas.addEventListener('click', () => { if (G.mode === 'play') input.lock(); });
+// browsers only allow sound after a gesture: start the menu theme on the first one
+const firstGesture = () => { audio.init(); if (G.mode === 'menu') audio.setScene('menu', true); window.removeEventListener('pointerdown', firstGesture); window.removeEventListener('keydown', firstGesture); };
+window.addEventListener('pointerdown', firstGesture);
+window.addEventListener('keydown', firstGesture);
 input.onLockChange = (locked) => { if (!locked && G.mode === 'play' && !G.ignoreUnlock) pause(); };
 
 function startGame() {
+  audio.setScene('explore');
   resetGame();
   G.mode = 'play';
   showScreen(null);
@@ -366,6 +371,7 @@ function resume() {
   input.lock();
 }
 function toMenu() {
+  audio.setScene('menu');
   G.mode = 'menu';
   G.ignoreUnlock = true; input.unlock(); G.ignoreUnlock = false;
   hud.show(false);
@@ -489,7 +495,7 @@ function onBreach(point, display) {
     return;
   }
   // a near miss plays out in slow motion
-  if (d > 10.5 && d < 70) { G.slowmo = 1.1; audio.stinger?.(); }
+  if (d > 10.5 && d < 70) G.slowmo = 1.1;
 }
 function onStrike(point, radius) {
   const p = G.mounted ? skimmer.position : player.position;
@@ -553,6 +559,7 @@ function toggleMount() {
 const clock = new THREE.Clock();
 const tmpV = new THREE.Vector3();
 const lookAt = new THREE.Vector3();
+const tmpFwd = new THREE.Vector3();
 
 function updateCamera(dt, playing) {
   const m = input.consumeMouse();
@@ -700,6 +707,8 @@ function updatePlay(dt) {
     const s = stakes[i];
     s.life -= dt;
     s.mesh.userData.head.position.y = 1.25 + Math.abs(Math.sin(G.time * 10)) * 0.25;
+    s.thump = (s.thump || 0) - dt;
+    if (s.thump <= 0) { s.thump = 0.6; audio.thumpAt(s.position.x, s.position.y, s.position.z); }
     if (Math.random() < dt * 6) particles.emit(s.position.x, s.position.y + 0.2, s.position.z, (Math.random() - 0.5) * 3, 2, (Math.random() - 0.5) * 3, { life: 0.8, size: 0.7, gravity: -6 });
     if (s.life <= 0) { scene.remove(s.mesh); stakes.splice(i, 1); continue; }
     creature.hear(s, s.position.x, s.position.z, 1.15, dt, storm, 1 - sky.sunUp);
@@ -875,8 +884,12 @@ function frame() {
     engine: G.mounted && playing ? 1 : 0,
     engineSpeed: skimmer.speed,
     danger: playing ? creature.danger() : 0,
-    paused: G.mode === 'pause',
+    paused: G.mode === 'pause' || G.mode === 'bench',
+    creaturePos: creature.mesh.position,
+    skimmerPos: skimmer.position,
   });
+  camera.getWorldDirection(tmpFwd);
+  audio.setListener(camera.position, tmpFwd, camera.up);
 
   composer.render();
   input.endFrame();
@@ -892,4 +905,4 @@ requestAnimationFrame(() => {
 });
 
 // expose for debugging / automated checks
-window.__glasswind = { G, player, skimmer, creature, sky, startGame, camera, tracks, scene, terrainUniforms, ruins, wreckPos, condensers, beaconPos, nearestInteract, completeInteract };
+window.__glasswind = { G, player, skimmer, creature, sky, startGame, camera, tracks, scene, terrainUniforms, ruins, wreckPos, condensers, beaconPos, nearestInteract, completeInteract, audio };
