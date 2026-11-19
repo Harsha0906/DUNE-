@@ -14,6 +14,7 @@ import {
 import { Sky } from './sky.js';
 import { Audio } from './audio.js';
 import { Input } from './input.js';
+import { setupTouch, pollGamepad } from './touch.js';
 import { Player, Skimmer } from './player.js';
 import { Creature } from './creature.js';
 import { ParticlePool, StormField } from './particles.js';
@@ -30,7 +31,7 @@ let MAX_STAKES = 4;
 const $ = (id) => document.getElementById(id);
 
 // ---------------------------------------------------------------- settings
-const settings = { quality: 'high', sens: 1, vol: 0.8, music: true, invert: false };
+const settings = { quality: 'high', sens: 1, vol: 0.8, music: true, invert: false, adaptive: true, hints: true };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('glasswind.settings') || '{}')); } catch { /* ignore */ }
 const saveSettings = () => { try { localStorage.setItem('glasswind.settings', JSON.stringify(settings)); } catch { /* ignore */ } };
 
@@ -54,9 +55,12 @@ const lens = new ShaderPass(DesertLensShader);
 composer.addPass(lens);
 composer.addPass(new OutputPass());
 
+const perf = { scale: 1, avg: 1 / 60, slow: 0, fast: 0, last: performance.now() };
+const maxRatio = () => Math.min(window.devicePixelRatio, settings.quality === 'high' ? 2 : 1);
 function applyQuality() {
   const high = settings.quality === 'high';
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, high ? 2 : 1));
+  if (!settings.adaptive) perf.scale = 1;
+  renderer.setPixelRatio(maxRatio() * perf.scale);
   bloom.enabled = high;
   resize();
 }
@@ -231,6 +235,7 @@ function resetGame() {
   setBeaconCharged(false);
   cam.yaw = Math.PI * 0.85; cam.pitch = 0.25;
   hud.clearToasts();
+  G.hints = new Set(); G.satchelGiven = false; G.sawDisplay = false; G.autosave = 20;
 }
 
 function setBeaconCharged(on) {
@@ -249,7 +254,8 @@ function showScreen(id) { for (const s of screens) $(s).classList.toggle('hidden
 document.querySelectorAll('.goalN').forEach((e) => { e.textContent = GOAL; });
 $('shardGoal').textContent = GOAL;
 
-$('btnPlay').onclick = () => { audio.init(); audio.ui(); startGame(); };
+$('btnPlay').onclick = () => { audio.init(); audio.ui(); clearSave(); startGame(); };
+$('btnContinue').onclick = () => { audio.init(); audio.ui(); continueGame(); };
 $('btnHow').onclick = () => { audio.init(); audio.ui(); returnTo = 'menu'; showScreen('howPanel'); };
 $('btnSettings').onclick = () => { audio.init(); audio.ui(); returnTo = 'menu'; showScreen('settingsPanel'); };
 $('btnPauseHow').onclick = () => { audio.ui(); returnTo = 'pause'; showScreen('howPanel'); };
@@ -266,6 +272,8 @@ $('setSens').value = settings.sens;
 $('setVol').value = settings.vol;
 $('setMusic').checked = settings.music;
 $('setInvert').checked = settings.invert;
+$('setAdaptive').checked = settings.adaptive;
+$('setHints').checked = settings.hints;
 const applySettings = () => {
   input.sensitivity = settings.sens; input.invertY = settings.invert;
   audio.setVolume(settings.vol); audio.setMusic(settings.music);
@@ -276,6 +284,8 @@ $('setSens').oninput = (e) => { settings.sens = +e.target.value; saveSettings();
 $('setVol').oninput = (e) => { settings.vol = +e.target.value; saveSettings(); applySettings(); };
 $('setMusic').onchange = (e) => { settings.music = e.target.checked; saveSettings(); applySettings(); };
 $('setInvert').onchange = (e) => { settings.invert = e.target.checked; saveSettings(); applySettings(); };
+$('setAdaptive').onchange = (e) => { settings.adaptive = e.target.checked; saveSettings(); applySettings(); };
+$('setHints').onchange = (e) => { settings.hints = e.target.checked; saveSettings(); };
 
 canvas.addEventListener('click', () => { if (G.mode === 'play') input.lock(); });
 // browsers only allow sound after a gesture: start the menu theme on the first one
@@ -284,15 +294,74 @@ window.addEventListener('pointerdown', firstGesture);
 window.addEventListener('keydown', firstGesture);
 input.onLockChange = (locked) => { if (!locked && G.mode === 'play' && !G.ignoreUnlock) pause(); };
 
-function startGame() {
+function startGame(fromSave) {
   audio.setScene('explore');
   resetGame();
+  if (fromSave) applySave(fromSave);
   G.mode = 'play';
   showScreen(null);
   hud.show(true);
   input.lock();
+  if (fromSave) {
+    const ch = G.chapter; G.chapter = -1; setChapter(ch);
+    hud.toast('Expedition resumed', 'good', 2500);
+    return;
+  }
   setChapter(0);
   setTimeout(() => G.mode === 'play' && hud.toast('Walk softly. Something under the sand listens for footsteps.', 'warn', 5500), 7000);
+  setTimeout(() => hint('move', document.body.classList.contains('touch')
+    ? 'Drag the left side to move and the right side to look.'
+    : 'WASD to move, mouse to look. Click the world to capture the mouse.'), 1500);
+}
+
+// ---------------------------------------------------------------- saves
+const SAVE_KEY = 'glasswind.save.v1';
+function readSave() { try { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return d && d.v === 1 ? d : null; } catch { return null; } }
+function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ } refreshContinue(); }
+function refreshContinue() {
+  const d = readSave();
+  $('btnContinue').classList.toggle('hidden', !d);
+  $('btnPlay').classList.toggle('primary', !d);
+  if (d) $('btnContinue').textContent = `Continue · ${CHAPTERS[d.chapter]?.title || 'Expedition'} · ◆ ${d.shards}`;
+}
+function saveGame() {
+  if (G.mode !== 'play' || G.extracting) return;
+  const base = G.mounted ? skimmer.position : player.position;
+  const d = {
+    v: 1, at: Date.now(),
+    water: G.water, health: G.health, shards: G.shards, stakes: G.stakes, time: G.time, days: G.days,
+    chapter: G.chapter, upgrades: [...G.upgrades], cellFound: G.cellFound, tabletsRead: G.tabletsRead,
+    satchelGiven: !!G.satchelGiven, sawDisplay: !!G.sawDisplay, hints: [...G.hints],
+    taken: shards.map((x, i) => (x.taken ? i : -1)).filter((i) => i >= 0),
+    caches: caches.map((x, i) => (x.taken ? i : -1)).filter((i) => i >= 0),
+    ruins: ruins.map((x, i) => (x.read ? i : -1)).filter((i) => i >= 0),
+    pos: [base.x, base.z], ski: [skimmer.position.x, skimmer.position.z, skimmer.yaw], sky: sky.time, yaw: cam.yaw,
+  };
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch { /* storage may be blocked */ }
+}
+function applySave(d) {
+  Object.assign(G, { water: d.water, health: d.health, shards: d.shards, stakes: d.stakes, time: d.time, days: d.days,
+    chapter: d.chapter, cellFound: d.cellFound, tabletsRead: d.tabletsRead, satchelGiven: d.satchelGiven, sawDisplay: d.sawDisplay });
+  G.upgrades = new Set(d.upgrades); G.hints = new Set(d.hints || []);
+  for (const i of d.taken) if (shards[i]) { shards[i].taken = true; shards[i].mesh.visible = false; }
+  for (const i of d.caches) if (caches[i]) { caches[i].taken = true; caches[i].mesh.visible = false; }
+  for (const i of d.ruins) if (ruins[i]) { ruins[i].read = true; ruins[i].mesh.userData.glyphM.emissiveIntensity = 0.2; }
+  if (G.cellFound) wreck.userData.cell.visible = false;
+  applyUpgrades();
+  if (G.shards >= GOAL) setBeaconCharged(true);
+  player.reset(d.pos[0], d.pos[1]);
+  skimmer.reset(d.ski[0], d.ski[1], d.ski[2]);
+  sky.time = d.sky; cam.yaw = d.yaw;
+}
+function continueGame() { const d = readSave(); if (d) startGame(d); else startGame(); }
+window.addEventListener('beforeunload', saveGame);
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveGame(); });
+
+// ---------------------------------------------------------------- tutorial hints
+function hint(id, text, ms = 5000) {
+  if (!settings.hints || G.mode !== 'play' || G.hints.has(id)) return;
+  G.hints.add(id);
+  hud.toast(text, 'hint', ms);
 }
 function setChapter(n) {
   if (G.chapter === n) return;
@@ -355,6 +424,7 @@ function applyUpgrades() {
 function closeBench() {
   audio.ui();
   G.mode = 'play';
+  saveGame();
   showScreen(null);
   input.lock();
 }
@@ -371,6 +441,8 @@ function resume() {
   input.lock();
 }
 function toMenu() {
+  if (G.mode === 'play' || G.mode === 'pause' || G.mode === 'bench') { G.mode = 'play'; saveGame(); }
+  refreshContinue();
   audio.setScene('menu');
   G.mode = 'menu';
   G.ignoreUnlock = true; input.unlock(); G.ignoreUnlock = false;
@@ -381,6 +453,7 @@ function toMenu() {
 function endGame(won, title, text) {
   if (G.mode !== 'play') return;
   G.mode = won ? 'won' : 'dead';
+  clearSave();
   G.ignoreUnlock = true; input.unlock(); G.ignoreUnlock = false;
   won ? audio.win() : audio.lose();
   const mm = Math.floor(G.time / 60), ss = String(Math.floor(G.time % 60)).padStart(2, '0');
@@ -395,7 +468,7 @@ function endGame(won, title, text) {
 
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
-    if (G.mode === 'play' && !input.locked) pause();
+    if (G.mode === 'play' && (!input.locked || e.isTrusted === false)) pause();
     else if (G.mode === 'pause') resume();
     else if (G.mode === 'bench') closeBench();
   }
@@ -835,6 +908,32 @@ function updateHUD() {
   if (G.mapOpen) hud.bigmap(p.x, p.z, heading, pois);
 }
 
+// Keep the frame rate steady: render fewer pixels when frames run long, more when there is headroom.
+function adaptResolution() {
+  const now = performance.now();
+  const ms = Math.min(250, now - perf.last); perf.last = now;
+  if (!settings.adaptive || document.hidden) return;
+  perf.avg += (ms / 1000 - perf.avg) * 0.05;
+  if (perf.avg > 1 / 45) { perf.slow += ms; perf.fast = 0; } else if (perf.avg < 1 / 57) { perf.fast += ms; perf.slow = 0; } else { perf.slow = perf.fast = 0; }
+  let next = perf.scale;
+  if (perf.slow > 1500 && perf.scale > 0.55) next = Math.max(0.55, perf.scale - 0.15);
+  else if (perf.fast > 5000 && perf.scale < 1) next = Math.min(1, perf.scale + 0.1);
+  if (next !== perf.scale) {
+    perf.scale = next; perf.slow = perf.fast = 0;
+    renderer.setPixelRatio(maxRatio() * perf.scale); resize();
+  }
+}
+
+function tutorialTick() {
+  if (G.interact?.kind === 'shard') hint('shard', 'Hold E to harvest sunglass. Harvesting rings through the sand, so look around first.');
+  if (creature.state === 'hunt' && creature.distanceTo < 300) hint('tremor', 'Tremors mean the Veil Ray is coming. Sneak (C), get onto rock, or plant a thrum stake (Q) to lure it away.', 7000);
+  if (G.water < 45) hint('water', 'Water is getting low. Condensers sit on the rock mesas, and caches hide in the open sand.');
+  if (G.cellFound && !G.mounted && G.time > 5) hint('skimmer', 'Your skimmer has power again. Press F near it to ride. Shift boosts, Space drifts.');
+  if (G.time > 90) hint('map', 'Press M for the large map. The tablets and the wreck are marked on it.');
+  if (sky.sunUp < 0.2) hint('night', 'Night is cool and saves your water, but the Veil Ray is bolder in the dark.');
+  if (G.stormActive) hint('storm', 'Storms drown out your footsteps. It is the safest time to cross open sand.');
+}
+
 let frames = 0;
 function frame() {
   requestAnimationFrame(frame);
@@ -843,9 +942,17 @@ function frame() {
   const timeScale = G.slowmo > 0.3 ? 0.3 : 1 - 0.7 * (G.slowmo / 0.3);
   const dt = rawDt * timeScale;
   const t = clock.elapsedTime;
+  pollGamepad(input, () => { if (G.mode === 'play') pause(); else if (G.mode === 'pause') resume(); else if (G.mode === 'bench') closeBench(); });
   const playing = G.mode === 'play';
+  document.body.classList.toggle('playing', playing);
+  adaptResolution();
 
-  if (playing) updatePlay(dt);
+  if (playing) {
+    updatePlay(dt);
+    G.autosave -= rawDt;
+    if (G.autosave <= 0) { G.autosave = 20; saveGame(); }
+    tutorialTick();
+  }
   if (G.mode === 'menu') {
     creature.update(dt, { player: new THREE.Vector3(0, 0, 0), storm: 0, night: 0, onStrike: () => {}, onSlam: () => {} });
     menuCamera(dt);
@@ -897,6 +1004,8 @@ function frame() {
 }
 
 applySettings();
+setupTouch(input, document.body);
+refreshContinue();
 showScreen('loading');
 requestAnimationFrame(() => {
   showScreen('menu');
@@ -905,4 +1014,4 @@ requestAnimationFrame(() => {
 });
 
 // expose for debugging / automated checks
-window.__glasswind = { G, player, skimmer, creature, sky, startGame, camera, tracks, scene, terrainUniforms, ruins, wreckPos, condensers, beaconPos, nearestInteract, completeInteract, audio };
+window.__glasswind = { G, player, skimmer, creature, sky, startGame, camera, tracks, scene, terrainUniforms, ruins, wreckPos, condensers, beaconPos, nearestInteract, completeInteract, audio, saveGame, readSave, continueGame, perf, hint };

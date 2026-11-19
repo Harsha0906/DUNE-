@@ -2,7 +2,7 @@
 
 *The sands of Oshar sing. Something beneath them listens.*
 
-An original low-poly, open-world desert survival game that runs in the browser, built with **Three.js** and **Vite**. There are no external assets: the terrain, models, sky and every sound are generated in code.
+An original low-poly, open-world desert survival game that runs in the browser, built with **Three.js** and **Vite**. The terrain, models, sky and sound effects are generated in code. The only external assets are two music tracks (see Credits).
 
 ![Main menu](docs/menu.png)
 
@@ -16,11 +16,17 @@ You are a glass-runner dropped on Oshar, a desert world under a ringed gas giant
 - **Sand-skimmer**: fast, but loud. Outrun the ray or lead it straight to you.
 - **Day and night**: a 7-minute cycle. Nights are cool and easy on your water but dark.
 - **Sandstorms** blind you and hurt you in the open, but they also muffle your noise.
+- **A story in four chapters**: restart the outpost condenser, pull a power cell from a crashed skimmer, read the five echo tablets in the ruins, and hold the beacon for 45 seconds while the lift comes down.
+- **Workbench upgrades** at condensers: trade sunglass for deeper flasks, hush wraps, a sealed cloak, a stake satchel, engine baffles or tremor sense.
+- **Autosave**: progress saves every 20 seconds and when you leave, and **Continue** on the menu picks it up.
+- **Plays anywhere**: keyboard and mouse, gamepad, or touch controls on phones and tablets. Adaptive resolution keeps the frame rate steady on slower devices.
 
 | | |
 |---|---|
 | ![Tremors](docs/hunt.png) | ![Breach](docs/breach.png) |
 | ![Skimmer at dusk](docs/skimmer.png) | ![Sandstorm](docs/storm.png) |
+
+<img src="docs/mobile.png" alt="Touch controls on a phone" width="240">
 
 ## Controls
 
@@ -36,6 +42,10 @@ You are a glass-runner dropped on Oshar, a desert world under a ringed gas giant
 | Q | Plant a thrum stake |
 | M | Large map |
 | Esc | Pause |
+
+**Gamepad:** left stick moves, right stick looks, A jump or drift, X use, Y board, B sneak, RT sprint or boost, LB stake, Back map, Start pause.
+
+**Touch:** drag the left side to move and the right side to look; on-screen buttons cover the rest.
 
 ## Run it
 
@@ -57,6 +67,13 @@ The build is a plain static site with relative paths, so `dist/` can be hosted a
 | `src/player.js` | Third-person wanderer controller and the hover skimmer |
 | `src/models.js` | All low-poly models built from primitives |
 | `src/particles.js` | Pooled sand particles and storm streaks |
-| `src/audio.js` | Synthesized wind, rumble, engine, music and effects (Web Audio) |
+| `src/audio.js` | Music playback, reactive score, positional (HRTF) effects (Web Audio) |
+| `src/touch.js` | Touch joystick and buttons, gamepad polling |
+| `src/story.js` | Chapters, echo tablets, workbench upgrades |
 | `src/hud.js` | Compass, minimap, toasts, tremor indicator |
 | `src/main.js` | World setup, game rules, UI flow and render loop |
+
+## Credits
+
+- Music: "Dune Legacy" by Luminewave and "Dune" by Audioknap, via [Pixabay](https://pixabay.com/music/) under the Pixabay Content License.
+- Reactive score, sound design, art and code: made for this project.

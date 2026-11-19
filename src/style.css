@@ -160,3 +160,37 @@ button.up.owned { opacity: 1; border-color: var(--glass); background: rgba(143, 
 .upDesc { font-weight: 500; font-size: 15px; color: #f3e6d2; }
 .upCost { font-size: 15px; color: var(--glass); letter-spacing: 0.1em; }
 .credits { margin-top: 10px; color: var(--dim); font-size: 12px; letter-spacing: 0.05em; }
+
+/* ---------- tutorial hints ---------- */
+.toast.hint { border-color: #f4d58d; color: #fff2cf; font-size: 17px; }
+.toast.hint::before { content: 'TIP  '; color: #f4d58d; font-size: 13px; letter-spacing: 0.2em; }
+
+/* ---------- touch controls ---------- */
+#touchUI { display: none; position: fixed; inset: 0; z-index: 30; pointer-events: none; user-select: none; -webkit-user-select: none; touch-action: none; }
+body.touch.playing #touchUI { display: block; }
+#stickZone { position: absolute; left: 0; bottom: 0; width: 45vw; height: 60vh; pointer-events: auto; }
+#lookZone { position: absolute; right: 0; top: 0; width: 55vw; height: 100vh; pointer-events: auto; }
+#stickBase { position: fixed; left: 40px; bottom: 40px; width: 140px; height: 140px; border-radius: 50%; border: 2px solid rgba(255, 236, 200, 0.35); background: rgba(20, 12, 6, 0.25); opacity: 0.45; }
+#stickBase.on { opacity: 1; bottom: auto; }
+#stickKnob { position: absolute; left: 45px; top: 45px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255, 220, 170, 0.75); }
+#touchBtns { position: absolute; right: 14px; bottom: 18px; display: grid; grid-template-columns: repeat(3, 64px); gap: 10px; pointer-events: auto; }
+#touchBtns .tb { min-width: 0; clip-path: none; text-transform: uppercase; display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255, 236, 200, 0.4); background: rgba(20, 12, 6, 0.45); color: #fbe9cf; font: 600 13px Rajdhani, sans-serif; letter-spacing: 0.06em; padding: 0; touch-action: none; }
+#touchBtns .tb.big { background: rgba(232, 161, 92, 0.55); }
+#touchBtns .tb.small { height: 40px; border-radius: 20px; font-size: 12px; }
+#touchBtns .tb.on { background: rgba(143, 233, 255, 0.5); border-color: #8fe9ff; }
+body.touch #crosshair, body.touch.playing #minimap { display: none; }
+@media (max-width: 700px) {
+  .toast { font-size: 15px; }
+}
+body.touch #vitals { bottom: auto; top: 150px; transform: scale(0.8); transform-origin: left top; }
+body.touch.playing #rightPanel { bottom: auto; top: 150px; transform: scale(0.8); transform-origin: right top; }
+body.touch #toasts { top: 260px; }
+@media (max-width: 700px) {
+  #compass { top: 52px; width: 86vw; }
+  body.touch #topLeft { top: 96px; }
+  body.touch #vitals { top: 190px; }
+  body.touch.playing #rightPanel { top: 190px; }
+  body.touch #objSub { display: none; }
+}
+@media (max-width: 700px) { body.touch #toasts { top: 300px; } body.touch.playing #rightPanel { top: 270px; } }
+@media (max-width: 700px) { body.touch.playing #rightPanel { top: 92px; right: 12px; } }

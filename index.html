@@ -54,7 +54,8 @@
       <h1>GLASSWIND</h1>
       <p class="tag">The sands of Oshar sing. Something beneath them listens.</p>
       <div class="buttons">
-        <button id="btnPlay" class="primary">Begin expedition</button>
+        <button id="btnContinue" class="primary hidden">Continue</button>
+        <button id="btnPlay" class="primary" >Begin expedition</button>
         <button id="btnHow">How to play</button>
         <button id="btnSettings">Settings</button>
       </div>
@@ -89,6 +90,8 @@
             <tr><td>Q</td><td>Plant a thrum stake</td></tr>
             <tr><td>M</td><td>Toggle large map</td></tr>
             <tr><td>Esc</td><td>Pause</td></tr>
+            <tr><td>Gamepad</td><td>Sticks move and look · A jump · X use · Y board · B sneak · RT sprint · LB stake · Start pause</td></tr>
+            <tr><td>Touch</td><td>Left side moves, right side looks, buttons for the rest</td></tr>
           </table>
         </div>
       </div>
@@ -106,6 +109,8 @@
       <label class="row">Volume <input id="setVol" type="range" min="0" max="1" step="0.05" value="0.8" /></label>
       <label class="row">Music <input id="setMusic" type="checkbox" checked /></label>
       <label class="row">Invert look <input id="setInvert" type="checkbox" /></label>
+      <label class="row">Adaptive resolution (steady FPS) <input id="setAdaptive" type="checkbox" checked /></label>
+      <label class="row">Tutorial hints <input id="setHints" type="checkbox" checked /></label>
       <button class="back">Back</button>
     </div>
   </div>
