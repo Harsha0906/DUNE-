@@ -9,6 +9,9 @@ export class Input {
     this.dragging = false;
     this.sensitivity = 1;
     this.invertY = false;
+    this.virtual = new Set();
+    this.analog = { x: 0, y: 0 };
+    this.lookX = 0; this.lookY = 0;
 
     window.addEventListener('keydown', (e) => {
       if (['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code)) e.preventDefault();
@@ -36,8 +39,19 @@ export class Input {
   lock() { if (!this.locked) this.canvas.requestPointerLock?.()?.catch?.(() => {}); }
   unlock() { if (this.locked) document.exitPointerLock?.(); }
 
-  down(...codes) { return codes.some((c) => this.keys.has(c)); }
+  down(...codes) { return codes.some((c) => this.keys.has(c) || this.virtual.has(c)); }
+
+  /** Movement axes from keys plus any analog source (gamepad, touch stick). */
+  move() {
+    let x = (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) - (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0);
+    let y = (this.keys.has('KeyW') || this.keys.has('ArrowUp') ? 1 : 0) - (this.keys.has('KeyS') || this.keys.has('ArrowDown') ? 1 : 0);
+    x += this.analog.x; y += this.analog.y;
+    const l = Math.hypot(x, y);
+    if (l > 1) { x /= l; y /= l; }
+    return { x, y };
+  }
   hit(...codes) { return codes.some((c) => this.pressed.has(c)); }
+  press(code) { this.pressed.add(code); }
 
   consumeMouse() {
     const s = 0.0022 * this.sensitivity;

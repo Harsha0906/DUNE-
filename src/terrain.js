@@ -4,7 +4,7 @@ import { createNoise2D, fbm, smoothstep, lerp, clamp } from './noise.js';
 export const WORLD_SIZE = 1800;
 export const HALF = WORLD_SIZE / 2;
 export const PLAY_LIMIT = HALF - 60;
-const SEG = 300;
+const SEG = 384;
 const CELL = WORLD_SIZE / SEG;
 
 const n1 = createNoise2D(11);
@@ -106,6 +106,7 @@ export function createTerrainMesh() {
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const colors = new Float32Array(pos.count * 3);
+  const rockAttr = new Float32Array(pos.count);
   const sandLight = new THREE.Color('#f0c58a');
   const sandMid = new THREE.Color('#d9a066');
   const sandDark = new THREE.Color('#b27a48');
@@ -121,6 +122,7 @@ export function createTerrainMesh() {
     const h = heights[iz * GRID + ix];
     pos.setY(i, h);
     const mask = masks[iz * GRID + ix];
+    rockAttr[i] = mask;
     normalAt(x, z, tmpN);
     const slope = 1 - tmpN.y;
     // sand: lighter on crests/windward, darker on lee faces
@@ -137,14 +139,55 @@ export function createTerrainMesh() {
     colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setAttribute('aRock', new THREE.BufferAttribute(rockAttr, 1));
   geo.computeVertexNormals();
   const mat = new THREE.MeshStandardMaterial({
-    vertexColors: true, flatShading: true, roughness: 0.95, metalness: 0,
+    vertexColors: true, flatShading: true, roughness: 0.92, metalness: 0,
   });
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = terrainUniforms.uTime;
+    shader.uniforms.uSunUp = terrainUniforms.uSunUp;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aRock;\nvarying float vRock;\nvarying vec3 vWPos;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRock = aRock;\nvWPos = (modelMatrix * vec4(position, 1.0)).xyz;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform float uTime; uniform float uSunUp;
+        varying float vRock; varying vec3 vWPos;
+        float gwHash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }`)
+      .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
+        float gwDist = length(vWPos - cameraPosition);
+        float gwSand = 1.0 - smoothstep(0.15, 0.5, vRock);
+        {
+          // wind ripples: two crossing wave trains, warped so they meander like real sand
+          vec2 p = vWPos.xz;
+          float warp = sin(p.x * 0.11 + p.y * 0.07) * 2.2 + sin(p.y * 0.13 - p.x * 0.05) * 1.7;
+          vec2 d1 = normalize(vec2(0.82, 0.57));
+          vec2 d2 = normalize(vec2(0.55, 0.83));
+          float a1 = cos(dot(p, d1) * 2.1 + warp) * 0.16;
+          float a2 = cos(dot(p, d2) * 4.7 + warp * 1.6) * 0.06;
+          vec3 tilt = (viewMatrix * vec4(-(d1.x * a1 + d2.x * a2), 0.0, -(d1.y * a1 + d2.y * a2), 0.0)).xyz;
+          float fade = (1.0 - smoothstep(25.0, 160.0, gwDist)) * gwSand;
+          normal = normalize(normal + tilt * fade);
+        }`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        {
+          // glints of glass grains catching the sun
+          vec2 g = vWPos.xz * 7.0;
+          vec2 cell = floor(g);
+          float h = gwHash(cell);
+          vec2 off = vec2(gwHash(cell + 17.0), gwHash(cell + 41.0)) * 0.6 + 0.2;
+          float dot_ = smoothstep(0.12, 0.0, length(fract(g) - off));
+          float tw = step(0.985, h) * dot_ * pow(max(0.0, sin(uTime * 1.3 + h * 90.0)), 12.0);
+          totalEmissiveRadiance += vec3(1.0, 0.93, 0.8) * tw * (1.0 - smoothstep(3.0, 30.0, gwDist)) * gwSand * (0.1 + uSunUp * 1.4);
+        }`);
+  };
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
   return mesh;
 }
+
+export const terrainUniforms = { uTime: { value: 0 }, uSunUp: { value: 1 } };
 
 /** Render a small top-down map image for the minimap. */
 export function createMapCanvas(size = 256) {

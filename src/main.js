@@ -3,10 +3,13 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { DesertLensShader } from './postfx.js';
+import { createScatter, Tracks, Wind } from './scenery.js';
 
 import {
   createTerrainMesh, createMapCanvas, findRockSites, heightAt, isRock, rockMask,
-  PLAY_LIMIT, BEACON_POS,
+  PLAY_LIMIT, BEACON_POS, terrainUniforms, normalAt,
 } from './terrain.js';
 import { Sky } from './sky.js';
 import { Audio } from './audio.js';
@@ -45,6 +48,8 @@ const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.5, 0.55, 0.82);
 composer.addPass(bloom);
+const lens = new ShaderPass(DesertLensShader);
+composer.addPass(lens);
 composer.addPass(new OutputPass());
 
 function applyQuality() {
@@ -77,6 +82,13 @@ const creature = new Creature(scene, particles, audio);
 const hud = new HUD(createMapCanvas(256));
 
 const rand = mulberry32(2026);
+createScatter(scene, rand);
+const tracks = new Tracks(scene, 700);
+const wind = new Wind(particles, rand);
+player.onStep = (x, z, yaw, side) => {
+  const r = 0.14 * side;
+  tracks.add(x + Math.cos(yaw) * r, z - Math.sin(yaw) * r, yaw, 0.22, 0.36, 45, clock.elapsedTime);
+};
 const place = (obj, x, z, dy = 0) => { obj.position.set(x, heightAt(x, z) + dy, z); scene.add(obj); return obj; };
 
 // condensers: one at the start outpost, others on scattered mesas
@@ -160,7 +172,7 @@ const G = {
   days: 0, lastTimeOfDay: 0,
 };
 
-const cam = { yaw: Math.PI, pitch: 0.28, dist: 7, idle: 0, pos: new THREE.Vector3() };
+const cam = { yaw: Math.PI, pitch: 0.28, dist: 6.5, idle: 0, pos: new THREE.Vector3(), focus: new THREE.Vector3(), land: 0 };
 
 function resetGame() {
   G.water = 100; G.health = 100; G.shards = 0; G.stakes = 2; G.time = 0;
@@ -365,6 +377,8 @@ function killPlayer() {
   endGame(false, 'Taken by the Veil Ray', 'It heard you long before you saw it. Walk softly, sneak near it, and keep to the rock.');
 }
 
+player.onLand = (v) => { cam.land = Math.min(0.5, v * 0.03); G.shake = Math.max(G.shake, Math.min(0.5, v * 0.03)); };
+skimmer.onLand = (v) => { cam.land = Math.min(0.8, v * 0.05); G.shake = Math.max(G.shake, Math.min(0.9, v * 0.05)); };
 skimmer.onCrash = (sp) => { G.health -= sp * 0.6; G.hurtFlash = 0.4; G.shake = 0.5; };
 
 function toggleMount() {
@@ -397,33 +411,47 @@ const lookAt = new THREE.Vector3();
 function updateCamera(dt, playing) {
   const m = input.consumeMouse();
   if (playing) {
-    cam.yaw -= m.x;
-    cam.pitch = clamp(cam.pitch + m.y, -0.35, 1.2);
+    cam.yaw -= m.x + (input.lookX || 0) * dt * 2.6;
+    cam.pitch = clamp(cam.pitch + m.y + (input.lookY || 0) * dt * 1.8, -0.35, 1.2);
     if (m.wheel) cam.dist = clamp(cam.dist + m.wheel * 0.8, 3.5, 18);
-    if (Math.abs(m.x) + Math.abs(m.y) > 0.0001) cam.idle = 0; else cam.idle += dt;
-    if (G.mounted && cam.idle > 1.2 && skimmer.speed > 5) {
+    if (Math.abs(m.x) + Math.abs(m.y) + Math.abs(input.lookX || 0) > 0.0001) cam.idle = 0; else cam.idle += dt;
+    if (G.mounted && cam.idle > 1.0 && skimmer.speed > 5) {
       const d = Math.atan2(Math.sin(skimmer.yaw - cam.yaw), Math.cos(skimmer.yaw - cam.yaw));
       cam.yaw += d * Math.min(1, dt * 2.5);
     }
   }
   const focus = G.mounted ? skimmer.position : player.position;
-  lookAt.set(focus.x, focus.y + (G.mounted ? 2.2 : 1.7), focus.z);
+  // over-the-shoulder framing on foot, centred on the skimmer
+  const crouchDrop = !G.mounted && player.crouch ? 0.45 : 0;
+  const shoulder = G.mounted ? 0 : 0.55;
+  const rx = Math.cos(cam.yaw), rz = -Math.sin(cam.yaw);
+  cam.focus.lerp(tmpV.set(focus.x - rx * shoulder, focus.y + (G.mounted ? 2.3 : 1.65 - crouchDrop) - (cam.land || 0), focus.z - rz * shoulder), Math.min(1, dt * (G.mounted ? 9 : 14)));
+  lookAt.copy(cam.focus);
+  cam.land = Math.max(0, (cam.land || 0) - dt * 1.5);
   const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
-  const dist = cam.dist + (G.mounted ? skimmer.speed * 0.06 : 0);
+  const dist = cam.dist + (G.mounted ? skimmer.speed * 0.07 : player.sprinting ? 0.6 : 0);
   tmpV.set(-Math.sin(cam.yaw) * cp * dist, sp * dist, -Math.cos(cam.yaw) * cp * dist).add(lookAt);
-  const gy = heightAt(tmpV.x, tmpV.z) + 0.8;
-  if (tmpV.y < gy) tmpV.y = gy;
-  cam.pos.lerp(tmpV, Math.min(1, dt * 12));
+  // keep the camera above the sand along the whole boom, not just at its end
+  for (let k = 0.5; k <= 1.0; k += 0.25) {
+    const bx = lookAt.x + (tmpV.x - lookAt.x) * k, bz = lookAt.z + (tmpV.z - lookAt.z) * k;
+    const gy = heightAt(bx, bz) + 0.7;
+    const by = lookAt.y + (tmpV.y - lookAt.y) * k;
+    if (by < gy) tmpV.y += (gy - by) / k;
+  }
+  cam.pos.lerp(tmpV, Math.min(1, dt * 14));
   if (cam.pos.distanceTo(tmpV) > 30) cam.pos.copy(tmpV);
   camera.position.copy(cam.pos);
-  if (G.shake > 0) {
-    const s = G.shake * 0.35;
-    camera.position.x += (Math.random() - 0.5) * s;
-    camera.position.y += (Math.random() - 0.5) * s;
-    camera.position.z += (Math.random() - 0.5) * s;
-  }
   camera.lookAt(lookAt);
-  camera.fov += ((G.mounted && skimmer.boosting ? 72 : 62) - camera.fov) * Math.min(1, dt * 3);
+  // trauma-based shake: smooth noise, squared falloff, a little roll
+  const tr = Math.min(1, G.shake) ** 2;
+  if (tr > 0) {
+    const t = clock.elapsedTime * 22;
+    const nx = Math.sin(t * 1.3) + Math.sin(t * 2.7 + 1), ny = Math.sin(t * 1.7 + 2) + Math.sin(t * 3.1), nr = Math.sin(t * 1.1 + 4);
+    camera.position.x += nx * tr * 0.25; camera.position.y += ny * tr * 0.25;
+    camera.rotateZ(nr * tr * 0.05);
+  }
+  const fovT = G.mounted ? 62 + Math.min(skimmer.speed, 45) * 0.18 + (skimmer.boosting ? 6 : 0) : player.sprinting ? 67 : 62;
+  camera.fov += (fovT - camera.fov) * Math.min(1, dt * 3);
   camera.updateProjectionMatrix();
 }
 
@@ -487,6 +515,17 @@ function updatePlay(dt) {
   } else {
     player.update(dt, input, cam.yaw, true);
     skimmer.update(dt, input, false);
+  }
+  // skimmer furrows in the sand
+  if (!skimmer.destroyed && skimmer.grounded && skimmer.speed > 3) {
+    G.furrow = (G.furrow || 0) + skimmer.speed * dt;
+    if (G.furrow > 1.3) {
+      G.furrow = 0;
+      for (const sd of [-1, 1]) {
+        const x = skimmer.position.x + Math.cos(skimmer.yaw) * 1.35 * sd, z = skimmer.position.z - Math.sin(skimmer.yaw) * 1.35 * sd;
+        tracks.add(x, z, skimmer.yaw, 0.7, 1.8, 30, clock.elapsedTime);
+      }
+    }
   }
 
   // interactions
@@ -560,10 +599,11 @@ function updateHUD() {
   hud.set('clockIcon', sky.isNight ? '☾' : '☀');
   hud.toggle('stormWarn', 'hidden', !(G.stormActive || (G.stormWarned && G.stormClock < 18)));
   hud.set('stormWarn', G.stormActive ? 'SANDSTORM' : 'STORM INCOMING');
-  hud.style('stormVeil', 'opacity', (G.stormLevel * 0.85).toFixed(2));
+  hud.style('stormVeil', 'opacity', (G.stormLevel * 0.35).toFixed(2));
 
   const danger = creature.danger();
-  hud.style('vignette', 'opacity', Math.max(G.hurtFlash, creature.state === 'warn' ? 0.9 : creature.state === 'hunt' ? danger * 0.45 : 0).toFixed(2));
+  hud.style('vignette', 'opacity', (creature.state === 'warn' ? 0.6 : 0).toFixed(2));
+  G.danger = creature.state === 'warn' ? 1 : creature.state === 'hunt' ? danger * 0.55 : 0;
 
   const heading = bearing(Math.sin(cam.yaw), Math.cos(cam.yaw));
   const marks = {
@@ -597,7 +637,7 @@ function updateHUD() {
   } else hud.toggle('prompt', 'hidden', true);
 
   hud.toggle('vehicleHud', 'hidden', !G.mounted);
-  if (G.mounted) { hud.set('speedNum', Math.round(skimmer.speed * 3.6)); hud.toggle('boostTag', 'on', skimmer.boosting); }
+  if (G.mounted) { hud.set('speedNum', Math.round(skimmer.speed * 3.6)); hud.toggle('boostTag', 'on', skimmer.boosting); hud.style('boostFill', 'width', `${(skimmer.boostEnergy * 100).toFixed(0)}%`); }
 
   const pois = [];
   for (const c of condensers) pois.push({ x: c.pos.x, z: c.pos.z, r: 4, color: '#45c4ff' });
@@ -628,9 +668,24 @@ function frame() {
   if (G.mode !== 'pause') {
     if (playing) updateStorm(dt);
     sky.update(dt, camera.position, G.stormLevel);
+    terrainUniforms.uTime.value = t;
+    terrainUniforms.uSunUp.value = sky.sunUp;
+    const lu = lens.uniforms;
+    lu.uTime.value = t;
+    lu.uHeat.value = sky.heat * sky.sunUp * (1 - G.stormLevel) * (settings.quality === 'high' ? 1 : 0.6);
+    lu.uStorm.value = G.stormLevel;
+    lu.uStormColor.value.copy(scene.fog.color);
+    lu.uYaw.value = cam.yaw;
+    lu.uPitch.value = -cam.pitch * 0.5;
+    lu.uAspect.value = camera.aspect;
+    lu.uDanger.value = playing ? (G.danger || 0) : 0;
+    lu.uHurt.value = G.hurtFlash || 0;
+    lu.uNight.value = 1 - sky.sunUp;
     particles.update(dt);
     storm.update(dt, camera.position, G.stormLevel, heightAt(camera.position.x, camera.position.z), scene.fog.color);
     updateWorld(dt, t);
+    tracks.update(t);
+    wind.update(dt, camera.position, G.stormLevel, t);
   }
   if (playing) updateHUD();
 
@@ -644,7 +699,7 @@ function frame() {
     paused: G.mode === 'pause',
   });
 
-  if (bloom.enabled) composer.render(); else renderer.render(scene, camera);
+  composer.render();
   input.endFrame();
   if (++frames === 2) $('loading').classList.add('hidden');
 }
@@ -658,4 +713,4 @@ requestAnimationFrame(() => {
 });
 
 // expose for debugging / automated checks
-window.__glasswind = { G, player, skimmer, creature, sky, startGame, camera };
+window.__glasswind = { G, player, skimmer, creature, sky, startGame, camera, tracks, scene, terrainUniforms };

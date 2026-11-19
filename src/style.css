@@ -131,3 +131,6 @@ input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent); }
   button { min-width: 220px; }
   #vitals { width: 52vw; }
 }
+#boostBar { width: 160px; height: 4px; margin: 4px auto 0; background: rgba(255,255,255,0.15); }
+#boostFill { height: 100%; width: 100%; background: var(--glass); box-shadow: 0 0 8px var(--glass); }
+.vhint { font-size: 11px; letter-spacing: 0.2em; color: var(--dim); margin-top: 6px; text-transform: uppercase; }

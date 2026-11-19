@@ -135,7 +135,7 @@ export class Audio {
     o.start(t); o.stop(t + dur + 0.05);
   }
 
-  footstep(soft = false) { this.noiseBurst({ freq: soft ? 900 : 1300, q: 0.8, vol: soft ? 0.04 : 0.09, dur: 0.09 }); }
+  footstep(soft = false, rock = false) { this.noiseBurst({ freq: rock ? 2600 : soft ? 900 : 1300, q: rock ? 2 : 0.8, vol: soft ? 0.04 : 0.09, dur: rock ? 0.05 : 0.09 }); }
   jump() { this.noiseBurst({ freq: 700, vol: 0.12, dur: 0.18 }); }
   pickup() { [880, 1174.7, 1568].forEach((f, i) => this.tone(f, { type: 'triangle', vol: 0.09, dur: 0.5, at: i * 0.07 })); }
   drink() { for (let i = 0; i < 5; i++) this.tone(300 + Math.random() * 300, { vol: 0.06, dur: 0.12, at: i * 0.09, slide: 200 }); }
