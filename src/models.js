@@ -18,57 +18,102 @@ export function createWanderer() {
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
-  const cloak = mat('#2f5d62');
-  const cloth = mat('#d8c3a0');
-  const scarfM = mat('#c2452d');
+  const coat = mat('#2f6a70');        // teal long coat
+  const coatDark = mat('#22494d');
+  const cloth = mat('#e2cfa8');       // pale sand wraps
+  const scarfM = mat('#d0482c');      // signature red scarf
+  const leather = mat('#5a3b28');
   const dark = mat('#2a2522');
-  const skin = mat('#9b6b4f');
+  const metal = mat('#9a978f', { metalness: 0.6, roughness: 0.4 });
+  const brass = mat('#d29a45', { metalness: 0.7, roughness: 0.35 });
+  const skin = mat('#a8714f');
+  const gogM = new THREE.MeshStandardMaterial({ color: '#2ef2ff', emissive: '#18c8e0', emissiveIntensity: 1.6, flatShading: true });
+  const add = (parent, geo, m, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
+    const o = mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); parent.add(o); return o;
+  };
 
-  const torso = mesh(new THREE.CylinderGeometry(0.28, 0.42, 0.85, 7), cloak);
-  torso.position.y = 1.15; body.add(torso);
-  const robe = mesh(new THREE.CylinderGeometry(0.42, 0.55, 0.55, 7, 1, true), cloak);
-  robe.position.y = 0.62; body.add(robe);
-
-  const head = new THREE.Group(); head.position.y = 1.75; body.add(head);
-  const skull = mesh(new THREE.IcosahedronGeometry(0.22, 0), skin); head.add(skull);
-  const hood = mesh(new THREE.IcosahedronGeometry(0.29, 1), cloth); hood.scale.set(1, 1.05, 1.1); hood.position.set(0, 0.07, -0.07); head.add(hood);
-  const brim = mesh(new THREE.TorusGeometry(0.2, 0.05, 5, 10), cloth); brim.position.set(0, 0.03, 0.13); head.add(brim);
-  const wrap = mesh(new THREE.CylinderGeometry(0.23, 0.25, 0.16, 7), scarfM); wrap.position.y = -0.1; head.add(wrap);
-  const gogM = new THREE.MeshStandardMaterial({ color: '#2ef2ff', emissive: '#18c8e0', emissiveIntensity: 1.4, flatShading: true });
+  // ---- torso: fitted coat, chest harness, belt with pouches
+  add(body, new THREE.CylinderGeometry(0.27, 0.33, 0.62, 8), coat, 0, 1.25, 0);            // chest
+  add(body, new THREE.CylinderGeometry(0.33, 0.3, 0.2, 8), coatDark, 0, 0.9, 0);            // waist
+  add(body, new THREE.CylinderGeometry(0.3, 0.32, 0.1, 8), leather, 0, 0.98, 0);            // belt
+  add(body, new THREE.BoxGeometry(0.12, 0.09, 0.04), brass, 0, 0.98, 0.31);                 // buckle
   for (const s of [-1, 1]) {
-    const g = mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.06, 8), gogM);
-    g.rotation.x = Math.PI / 2; g.position.set(0.09 * s, 0.02, 0.2); head.add(g);
+    add(body, new THREE.BoxGeometry(0.12, 0.14, 0.09), leather, 0.24 * s, 0.94, 0.2, 0, 0.5 * s, 0); // pouches
+    // crossed harness straps
+    add(body, new THREE.BoxGeometry(0.06, 0.7, 0.03), leather, 0.06 * s, 1.27, 0.27, 0, 0, 0.5 * s);
   }
-  const strap = mesh(new THREE.TorusGeometry(0.22, 0.025, 4, 10), dark); strap.rotation.x = Math.PI / 2; strap.position.y = 0.02; head.add(strap);
+  add(body, new THREE.CylinderGeometry(0.06, 0.06, 0.04, 8), brass, 0, 1.3, 0.3, Math.PI / 2, 0, 0); // harness clasp
+  // coat skirt: front split flaps and a long back tail that swings
+  for (const s of [-1, 1]) add(body, new THREE.BoxGeometry(0.26, 0.58, 0.05), coat, 0.15 * s, 0.56, 0.22, -0.08, 0, 0.06 * s);
+  const tail = new THREE.Group(); tail.position.set(0, 0.86, -0.22); body.add(tail);
+  add(tail, new THREE.BoxGeometry(0.56, 0.7, 0.05), coat, 0, -0.35, 0, 0.1, 0, 0);
+  add(tail, new THREE.BoxGeometry(0.56, 0.06, 0.06), coatDark, 0, -0.69, 0.03, 0.1, 0, 0);
 
-  // scarf tail that streams in the wind
-  const scarf = new THREE.Group(); scarf.position.set(0, 1.62, -0.22); body.add(scarf);
+  // ---- head: hooded, masked, glowing goggles
+  const head = new THREE.Group(); head.position.y = 1.78; body.add(head);
+  add(head, new THREE.IcosahedronGeometry(0.2, 1), skin, 0, 0, 0.01);
+  const hood = add(head, new THREE.IcosahedronGeometry(0.27, 1), cloth, 0, 0.06, -0.06); hood.scale.set(1.05, 1.05, 1.15);
+  add(head, new THREE.ConeGeometry(0.14, 0.26, 6), cloth, 0, 0.12, -0.3, -1.9, 0, 0);       // hood point
+  add(head, new THREE.TorusGeometry(0.19, 0.045, 6, 12, Math.PI * 1.3), cloth, 0, 0.02, 0.12, 0, 0, -0.08 + Math.PI * -0.15); // hood rim
+  // face mask over nose and mouth
+  const mask = add(head, new THREE.CylinderGeometry(0.17, 0.2, 0.17, 8, 1, false, -1.2, 2.4), scarfM, 0, -0.08, 0.02); mask.scale.z = 1.05;
+  add(head, new THREE.BoxGeometry(0.22, 0.03, 0.03), dark, 0, -0.06, 0.19);                 // mask seam
+  // goggles: brass rims, glowing lenses, strap
+  add(head, new THREE.BoxGeometry(0.06, 0.05, 0.05), brass, 0, 0.05, 0.19);                 // bridge
+  for (const s of [-1, 1]) {
+    add(head, new THREE.CylinderGeometry(0.075, 0.075, 0.07, 10), brass, 0.09 * s, 0.05, 0.18, Math.PI / 2, 0, 0);
+    add(head, new THREE.CylinderGeometry(0.058, 0.058, 0.02, 10), gogM, 0.09 * s, 0.05, 0.22, Math.PI / 2, 0, 0);
+  }
+  add(head, new THREE.TorusGeometry(0.205, 0.022, 4, 14), dark, 0, 0.05, 0, Math.PI / 2, 0, 0);
+
+  // ---- scarf tail that streams in the wind
+  add(body, new THREE.TorusGeometry(0.2, 0.07, 6, 10), scarfM, 0, 1.6, 0, Math.PI / 2, 0, 0); // scarf collar
+  const scarf = new THREE.Group(); scarf.position.set(0.08, 1.6, -0.2); body.add(scarf);
   const segs = [];
   let parent = scarf;
-  for (let i = 0; i < 4; i++) {
-    const s = new THREE.Group(); s.position.z = i === 0 ? 0 : -0.22; parent.add(s);
-    const p = mesh(new THREE.BoxGeometry(0.16 - i * 0.02, 0.03, 0.24), scarfM); p.position.z = -0.11; s.add(p);
-    segs.push(s); parent = s;
+  for (let i = 0; i < 5; i++) {
+    const sg = new THREE.Group(); sg.position.z = i === 0 ? 0 : -0.2; parent.add(sg);
+    const p = mesh(new THREE.BoxGeometry(0.17 - i * 0.02, 0.03, 0.22), scarfM); p.position.z = -0.1; sg.add(p);
+    segs.push(sg); parent = sg;
   }
 
-  // backpack with water tank
-  const pack = mesh(new THREE.BoxGeometry(0.42, 0.55, 0.22), dark); pack.position.set(0, 1.2, -0.33); body.add(pack);
-  const tankMat = new THREE.MeshStandardMaterial({ color: '#4fc3ff', emissive: '#1a6fa0', emissiveIntensity: 0.6, transparent: true, opacity: 0.85, roughness: 0.2 });
-  const tank = mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8), tankMat); tank.position.set(0.14, 1.25, -0.47); body.add(tank);
-  const tank2 = tank.clone(); tank2.position.x = -0.14; body.add(tank2);
+  // ---- backpack: frame, bedroll, twin glowing tanks, antenna light
+  add(body, new THREE.BoxGeometry(0.44, 0.52, 0.2), leather, 0, 1.22, -0.36);
+  add(body, new THREE.BoxGeometry(0.48, 0.05, 0.24), metal, 0, 1.49, -0.36);
+  add(body, new THREE.BoxGeometry(0.48, 0.05, 0.24), metal, 0, 0.97, -0.36);
+  add(body, new THREE.CylinderGeometry(0.1, 0.1, 0.58, 8), cloth, 0, 1.6, -0.36, 0, 0, Math.PI / 2); // bedroll
+  for (const s of [-1, 1]) add(body, new THREE.CylinderGeometry(0.105, 0.105, 0.03, 8), leather, 0.2 * s, 1.6, -0.36, 0, 0, Math.PI / 2);
+  const tankMat = new THREE.MeshStandardMaterial({ color: '#4fc3ff', emissive: '#1a6fa0', emissiveIntensity: 0.7, transparent: true, opacity: 0.88, roughness: 0.2 });
+  for (const s of [-1, 1]) {
+    add(body, new THREE.CylinderGeometry(0.09, 0.09, 0.46, 10), tankMat, 0.13 * s, 1.22, -0.5);
+    add(body, new THREE.CylinderGeometry(0.095, 0.095, 0.05, 10), metal, 0.13 * s, 1.47, -0.5);
+    add(body, new THREE.CylinderGeometry(0.095, 0.095, 0.05, 10), metal, 0.13 * s, 0.98, -0.5);
+  }
+  add(body, new THREE.CylinderGeometry(0.012, 0.012, 0.5, 4), metal, 0.18, 1.75, -0.42);
+  add(body, new THREE.SphereGeometry(0.035, 6, 4), new THREE.MeshStandardMaterial({ color: '#ffb35c', emissive: '#ff8a1f', emissiveIntensity: 2 }), 0.18, 2.0, -0.42);
 
+  // ---- limbs (hip and shoulder pivots drive the walk cycle)
   const limbs = {};
   for (const s of [-1, 1]) {
-    const hip = new THREE.Group(); hip.position.set(0.16 * s, 0.75, 0); body.add(hip);
-    const leg = mesh(new THREE.BoxGeometry(0.17, 0.72, 0.19), cloth); leg.position.y = -0.36; hip.add(leg);
-    const boot = mesh(new THREE.BoxGeometry(0.2, 0.14, 0.32), dark); boot.position.set(0, -0.72, 0.05); hip.add(boot);
-    const sh = new THREE.Group(); sh.position.set(0.38 * s, 1.48, 0); body.add(sh);
-    const arm = mesh(new THREE.BoxGeometry(0.14, 0.62, 0.15), cloak); arm.position.y = -0.3; sh.add(arm);
-    const hand = mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), dark); hand.position.y = -0.64; sh.add(hand);
+    const hip = new THREE.Group(); hip.position.set(0.14 * s, 0.82, 0); body.add(hip);
+    add(hip, new THREE.CylinderGeometry(0.1, 0.085, 0.42, 7), cloth, 0, -0.2, 0);          // thigh
+    add(hip, new THREE.CylinderGeometry(0.095, 0.095, 0.1, 7), leather, 0, -0.43, 0.01);    // knee wrap
+    add(hip, new THREE.CylinderGeometry(0.085, 0.075, 0.32, 7), cloth, 0, -0.62, 0);        // shin
+    add(hip, new THREE.CylinderGeometry(0.1, 0.1, 0.22, 7), dark, 0, -0.7, 0);              // boot shaft
+    add(hip, new THREE.BoxGeometry(0.17, 0.1, 0.3), dark, 0, -0.8, 0.06);                   // boot foot
+    add(hip, new THREE.BoxGeometry(0.18, 0.03, 0.32), leather, 0, -0.85, 0.06);             // sole
+
+    const sh = new THREE.Group(); sh.position.set(0.36 * s, 1.5, 0); body.add(sh);
+    const pad = add(sh, new THREE.SphereGeometry(0.15, 7, 5, 0, Math.PI * 2, 0, Math.PI / 2), coatDark, 0.02 * s, 0.02, 0); pad.scale.set(1.1, 0.8, 1.1); // shoulder pad
+    add(sh, new THREE.BoxGeometry(0.12, 0.02, 0.2), brass, 0.06 * s, 0.07, 0, 0, 0, -0.4 * s);
+    add(sh, new THREE.CylinderGeometry(0.085, 0.075, 0.34, 7), coat, 0, -0.18, 0);           // upper arm
+    add(sh, new THREE.CylinderGeometry(0.08, 0.08, 0.2, 7), cloth, 0, -0.42, 0);            // forearm wrap
+    add(sh, new THREE.CylinderGeometry(0.085, 0.085, 0.07, 7), leather, 0, -0.5, 0);        // bracer
+    add(sh, new THREE.BoxGeometry(0.11, 0.13, 0.11), leather, 0, -0.6, 0.01);               // glove
     limbs[s < 0 ? 'legL' : 'legR'] = hip;
     limbs[s < 0 ? 'armL' : 'armR'] = sh;
   }
-  root.userData = { body, head, scarf: segs, ...limbs };
+  root.userData = { body, head, scarf: segs, tail, ...limbs };
   return root;
 }
 

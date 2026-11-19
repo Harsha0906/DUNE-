@@ -177,6 +177,7 @@ export class Player {
       s.rotation.x = 0.25 + Math.sin(t * 6 + i) * 0.25 + Math.min(hs, 9) * 0.04;
       s.rotation.y = Math.sin(t * 4.3 + i * 0.7) * 0.3;
     });
+    if (u.tail) u.tail.rotation.x = 0.1 + Math.min(hs, 9) * 0.06 + Math.abs(swing) * 0.15 + Math.sin(t * 3) * 0.04 + (this.grounded ? 0 : 0.5);
   }
 }
 

@@ -17,6 +17,7 @@ export function setupTouch(input, root) {
       <button data-key="KeyC" class="tb" data-toggle="1">Sneak</button>
       <button data-key="KeyQ" class="tb">Stake</button>
       <button data-key="KeyF" class="tb">Board</button>
+      <button data-key="KeyR" class="tb">Call</button>
       <button data-key="KeyM" class="tb small">Map</button>
       <button data-key="Escape" class="tb small">Pause</button>
     </div>`;
@@ -91,8 +92,8 @@ export function setupTouch(input, root) {
 }
 
 // Standard-mapping gamepad: left stick move, right stick look, A jump/drift, X use,
-// Y board, B sneak, RT sprint/boost, LB stake, Back map, Start pause.
-const MAP = { 0: 'Space', 2: 'KeyE', 3: 'KeyF', 1: 'KeyC', 7: 'ShiftLeft', 4: 'KeyQ', 8: 'KeyM' };
+// Y board, B sneak, RT sprint/boost, LB stake, RB call skimmer, Back map, Start pause.
+const MAP = { 0: 'Space', 2: 'KeyE', 3: 'KeyF', 1: 'KeyC', 7: 'ShiftLeft', 4: 'KeyQ', 5: 'KeyR', 8: 'KeyM' };
 const prev = {};
 export function pollGamepad(input, onPause) {
   const pads = navigator.getGamepads?.() || [];

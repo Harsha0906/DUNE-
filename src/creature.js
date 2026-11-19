@@ -71,7 +71,7 @@ export class Creature {
     this.display = false;
     this.displayTimer = 60 + Math.random() * 40;
     this.baited = 0;
-    this.warnTime = 1.15;
+    this.warnTime = 1.9;
     this.funnel.visible = false;
     for (const d of this.debris) { d.mesh.visible = false; d.life = 0; }
     this.setSubmerged(true);
@@ -87,11 +87,11 @@ export class Creature {
     if (this.cooldown > 0 || this.state === 'breach' || this.state === 'warn' || this.state === 'dive') return;
     // once it has been fooled by stakes a few times it starts to doubt them
     if (source.kind === 'stake' && this.baited >= 2) level *= 0.55;
-    const range = 320 * level * (1 - storm * 0.55) * (1 + night * 0.18);
+    const range = 230 * level * (1 - storm * 0.55) * (1 + night * 0.18);
     const d = Math.hypot(x - this.pos.x, z - this.pos.y);
     if (d > range) return;
     const strength = level * Math.sqrt(1 - d / range);
-    this.interest = Math.min(1.5, this.interest + strength * dt * 2);
+    this.interest = Math.min(1.5, this.interest + strength * dt * 1.3);
     const cur = this.source && this.sourceAge < 0.5 ? this.sourceStrength : 0;
     if (strength >= cur * 0.9 || this.source === source) {
       this.source = source; this.sourceStrength = strength; this.sourceAge = 0;
@@ -102,7 +102,7 @@ export class Creature {
     }
     if (this.state === 'lurk' && d < 45 && source.kind !== 'stake') {
       // ambush: it was waiting right here
-      this.beginWarn(source, 0.75);
+      this.beginWarn(source, 1.4);
       return;
     }
     if ((this.state === 'roam' || this.state === 'search' || this.state === 'lurk') && this.interest > 0.35) {
@@ -135,7 +135,7 @@ export class Creature {
     this.pos.set(nx, nz);
   }
 
-  beginWarn(src, warnTime = 1.15) {
+  beginWarn(src, warnTime = 1.9) {
     const sp = src.position;
     const lead = src.velocity ? 0.45 : 0;
     this.strike.set(sp.x + (src.velocity?.x ?? 0) * lead, sp.z + (src.velocity?.z ?? 0) * lead);

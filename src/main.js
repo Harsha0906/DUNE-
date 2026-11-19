@@ -26,7 +26,7 @@ import {
 import { UPGRADES, TABLETS, CHAPTERS } from './story.js';
 import { mulberry32, clamp, smoothstep } from './noise.js';
 
-const GOAL = 20;
+const GOAL = 15;
 let MAX_STAKES = 4;
 const $ = (id) => document.getElementById(id);
 
@@ -213,7 +213,7 @@ const G = {
 const cam = { yaw: Math.PI, pitch: 0.28, dist: 6.5, idle: 0, pos: new THREE.Vector3(), focus: new THREE.Vector3(), land: 0 };
 
 function resetGame() {
-  G.water = 100; G.health = 100; G.shards = 0; G.stakes = 2; G.time = 0;
+  G.water = 100; G.health = 100; G.shards = 0; G.stakes = 3; G.time = 0; G.lastHurt = -99;
   G.mounted = false; G.stormLevel = 0; G.stormActive = false; G.stormClock = 150; G.stormWarned = false;
   G.interact = null; G.holdProgress = 0; G.charged = false; G.extracting = false; G.thirstWarned = false; G.shelterHint = false;
   G.days = 0;
@@ -377,11 +377,11 @@ function setChapter(n) {
 
 function objectiveText() {
   switch (G.chapter) {
-    case 0: return ['Drink at the outpost condenser', 'Hold E under the awning'];
+    case 0: return ['Restart the outpost condenser', 'Hold E under the awning'];
     case 1: return ['Recover the power cell', 'From the crashed skimmer (white marker)'];
     case 2: if (G.cellFound && !G.rodeSkimmer && !skimmer.destroyed) {
         const d = Math.round(Math.hypot(skimmer.position.x - player.position.x, skimmer.position.z - player.position.z));
-        return ['Return to your skimmer', `Follow the ▣ on the compass, ${d}m · Press F beside it to ride`];
+        return ['Ride your skimmer', d > 14 ? `It is ${d}m away · Press R to call it to you` : 'Press F beside it to ride'];
       }
       return [`Gather sunglass: ${G.shards} / ${GOAL}`, `Echo tablets read: ${G.tabletsRead} / ${TABLETS.length} · Spend sunglass on gear at condensers`];
     case 3: if (!G.extracting && G.shards < GOAL) return [`Gather sunglass: ${G.shards} / ${GOAL}`, 'You spent some at the workbench'];
@@ -418,7 +418,6 @@ function buyUpgrade(id) {
 }
 function applyUpgrades() {
   const has = (id) => G.upgrades.has(id);
-  G.maxWater = has('flasks') ? 150 : 100;
   player.stats.noise = has('wraps') ? 0.6 : 1;
   skimmer.stats.noise = has('baffles') ? 0.65 : 1;
   MAX_STAKES = has('satchel') ? 6 : 4;
@@ -486,7 +485,7 @@ function nearestInteract() {
   if (G.mounted) return null;
   for (const s of shards) if (!s.taken) { const d = s.pos.distanceTo(p); if (d < 3.4) consider(d, { kind: 'shard', ref: s, label: 'Harvest sunglass', time: 1.3 }); }
   for (const c of caches) if (!c.taken) { const d = c.pos.distanceTo(p); if (d < 3) consider(d, { kind: 'cache', ref: c, label: 'Open supply cache', time: 0.8 }); }
-  for (const c of condensers) { const d = Math.hypot(c.pos.x - p.x, c.pos.z - p.z); if (d < 5) consider(d + 2, { kind: 'condenser', ref: c, label: G.chapter >= 2 ? 'Drink and open workbench' : 'Drink from condenser', time: 1.0 }); }
+  for (const c of condensers) { const d = Math.hypot(c.pos.x - p.x, c.pos.z - p.z); if (d < 5) consider(d + 2, { kind: 'condenser', ref: c, label: G.chapter >= 2 ? 'Rest and open workbench' : 'Restart the condenser', time: 1.0 }); }
   for (const r of ruins) if (!r.read) { const d = Math.hypot(r.tabletPos.x - p.x, r.tabletPos.z - p.z); if (d < 4) consider(d, { kind: 'tablet', ref: r, label: 'Read the echo tablet', time: 1.5 }); }
   if (!G.cellFound) { const d = Math.hypot(wreckPos.x - p.x, wreckPos.z - p.z); if (d < 5) consider(d, { kind: 'cell', label: 'Pull the power cell', time: 2 }); }
   const db = Math.hypot(beaconPos.x - p.x, beaconPos.z - p.z);
@@ -509,14 +508,14 @@ function completeInteract(it) {
     case 'cache':
       it.ref.taken = true; it.ref.mesh.visible = false;
       G.water = Math.min(G.maxWater, G.water + 40);
-      G.health = Math.min(100, G.health + 15);
+      G.health = Math.min(100, G.health + 30);
       audio.drink();
-      if (G.stakes < MAX_STAKES && Math.random() < 0.6) { G.stakes++; hud.toast('Cache: water flask and a thrum stake', 'good'); } else hud.toast('Cache: water flask (+40 water)', 'good');
+      if (G.stakes < MAX_STAKES && Math.random() < 0.6) { G.stakes++; hud.toast('Cache: med kit and a thrum stake', 'good'); } else hud.toast('Cache: med kit (+30 health)', 'good');
       break;
     case 'condenser':
-      G.water = G.maxWater;
+      G.water = G.maxWater; G.health = 100;
       audio.drink();
-      if (G.stakes < 2 && it.ref.stakeCooldown <= 0) { G.stakes = 2; it.ref.stakeCooldown = 120; hud.toast('Water refilled. Restocked thrum stakes.', 'good'); } else hud.toast('Water refilled', 'good', 1800);
+      if (G.stakes < 3 && it.ref.stakeCooldown <= 0) { G.stakes = 3; it.ref.stakeCooldown = 60; hud.toast('Fully healed. Restocked thrum stakes.', 'good'); } else hud.toast('Fully healed', 'good', 1800);
       if (G.chapter === 0) setChapter(1);
       else if (G.chapter >= 2) openBench(it.ref);
       break;
@@ -537,8 +536,8 @@ function completeInteract(it) {
       G.cellFound = true;
       wreck.userData.cell.visible = false;
       audio.pickup();
-      hud.toast('Power cell recovered. Head back to your skimmer (▣ on the compass) and press F to ride.', 'good', 6000);
       setChapter(2);
+      setTimeout(() => callSkimmer(true), 1200);
       break;
     case 'beacon':
       setChapter(3);
@@ -579,12 +578,8 @@ function onStrike(point, radius) {
   const d = Math.hypot(p.x - point.x, p.z - point.y);
   G.shake = Math.max(G.shake, clamp(1.6 - d / 70, 0.2, 1.6));
   if (d < radius && !isSafe(p.x, p.z)) {
-    killPlayer();
+    hurtPlayer(45, point.x, point.y, 'The Veil Ray clipped you! Get to rock and catch your breath.');
     return;
-  }
-  if (!G.mounted && !skimmer.destroyed && Math.hypot(skimmer.position.x - point.x, skimmer.position.z - point.y) < radius) {
-    skimmer.destroyed = true; skimmer.mesh.visible = false;
-    hud.toast('The Veil Ray swallowed your skimmer!', 'warn', 4000);
   }
   for (let i = stakes.length - 1; i >= 0; i--) {
     const s = stakes[i];
@@ -595,7 +590,20 @@ function onStrike(point, radius) {
 function onSlam(x, z) {
   G.shake = Math.max(G.shake, 0.8);
   const p = G.mounted ? skimmer.position : player.position;
-  if (Math.hypot(p.x - x, p.z - z) < 8 && !isSafe(p.x, p.z)) killPlayer();
+  if (Math.hypot(p.x - x, p.z - z) < 8 && !isSafe(p.x, p.z)) hurtPlayer(25, x, z, 'The tail slam knocked you flat!');
+}
+function hurtPlayer(dmg, fx, fz, msg) {
+  if (G.mode !== 'play') return;
+  G.health -= dmg * (G.upgrades.has('plating') ? 0.6 : 1);
+  G.lastHurt = G.time;
+  G.hurtFlash = 0.8; G.shake = Math.max(G.shake, 1.2);
+  if (G.health <= 0) { killPlayer(); return; }
+  // fling the player clear of the strike
+  const body = G.mounted ? skimmer : player;
+  const dx = body.position.x - fx, dz = body.position.z - fz, l = Math.hypot(dx, dz) || 1;
+  const push = G.mounted ? 18 : 10;
+  if (body.velocity) { body.velocity.x += (dx / l) * push; body.velocity.z += (dz / l) * push; body.velocity.y = Math.max(body.velocity.y || 0, 7); }
+  hud.toast(msg, 'warn', 3000);
 }
 function killPlayer() {
   player.mesh.visible = false;
@@ -606,7 +614,25 @@ function killPlayer() {
 
 player.onLand = (v) => { cam.land = Math.min(0.5, v * 0.03); G.shake = Math.max(G.shake, Math.min(0.5, v * 0.03)); };
 skimmer.onLand = (v) => { cam.land = Math.min(0.8, v * 0.05); G.shake = Math.max(G.shake, Math.min(0.9, v * 0.05)); };
-skimmer.onCrash = (sp) => { G.health -= sp * 0.6; G.hurtFlash = 0.4; G.shake = 0.5; };
+skimmer.onCrash = (sp) => { G.health -= sp * 0.25; G.lastHurt = G.time; G.hurtFlash = 0.4; G.shake = 0.5; };
+
+// The skimmer flies itself to the player and drops in beside them.
+function callSkimmer(auto) {
+  if (G.mounted) return;
+  if (!G.cellFound) { if (!auto) hud.toast('The skimmer has no power yet. Find the cell in the crashed skimmer.', '', 2500); return; }
+  const p = player.position;
+  if (!skimmer.destroyed && Math.hypot(skimmer.position.x - p.x, skimmer.position.z - p.z) < 12) { if (!auto) hud.toast('Your skimmer is right here. Press F to ride.', '', 2000); return; }
+  // land it a few metres to the side, on sand if possible
+  const side = cam.yaw + Math.PI / 2;
+  let x = p.x + Math.sin(side) * 3.6, z = p.z + Math.cos(side) * 3.6;
+  if (isRock(x, z)) { x = p.x - Math.sin(side) * 3.6; z = p.z - Math.cos(side) * 3.6; }
+  skimmer.reset(x, z, cam.yaw + Math.PI);
+  skimmer.position.y += 14;
+  skimmer.grounded = false;
+  particles.burst(x, skimmer.position.y, z, 30, 6, { color: '#8fe9ff', life: 1, size: 0.6, gravity: 0, alpha: 1 });
+  audio.mount();
+  hud.toast(auto ? 'The cell wakes your skimmer. It flies to you on autopilot. Press F to ride!' : 'Skimmer inbound. Press F to ride.', 'good', 4000);
+}
 
 function toggleMount() {
   if (G.mounted) {
@@ -620,9 +646,9 @@ function toggleMount() {
     player.facing = skimmer.yaw;
     cam.dist = 7;
     audio.mount();
-  } else if (!skimmer.destroyed && player.position.distanceTo(skimmer.position) < 4.5 && !G.cellFound) {
+  } else if (!skimmer.destroyed && Math.hypot(player.position.x - skimmer.position.x, player.position.z - skimmer.position.z) < 5.5 && skimmer.position.y - player.position.y < 4 && !G.cellFound) {
     hud.toast('The skimmer is dead. Its power cell was in the crashed skimmer.', '', 3000);
-  } else if (!skimmer.destroyed && player.position.distanceTo(skimmer.position) < 4.5) {
+  } else if (!skimmer.destroyed && Math.hypot(player.position.x - skimmer.position.x, player.position.z - skimmer.position.z) < 5.5 && skimmer.position.y - player.position.y < 4) {
     G.mounted = true;
     G.rodeSkimmer = true;
     G.savedDistance = player.distance;
@@ -732,6 +758,7 @@ function updatePlay(dt) {
 
   if (input.hit('KeyF')) toggleMount();
   if (input.hit('KeyQ')) plantStake();
+  if (input.hit('KeyR')) callSkimmer(false);
   if (input.hit('KeyM')) { G.mapOpen = !G.mapOpen; $('bigMap').classList.toggle('hidden', !G.mapOpen); }
 
   if (G.mounted) {
@@ -799,15 +826,10 @@ function updatePlay(dt) {
   // survival
   const sheltered = !G.mounted && condensers.some((c) => Math.hypot(c.pos.x - player.position.x, c.pos.z - player.position.z) < 6);
   const cloak = G.upgrades.has('cloak');
-  const drain = (0.28 + sky.heat * 0.42 + (player.sprinting && !G.mounted ? 0.3 : 0) + storm * (cloak ? 0.1 : 0.3)) * (G.mounted ? 0.75 : 1) * (sheltered ? 0.3 : 1);
-  G.water = Math.max(0, G.water - drain * dt);
-  if (G.water <= 0) {
-    G.health -= 3 * dt;
-    if (!G.thirstWarned) { G.thirstWarned = true; hud.toast('You are dehydrating! Find water now.', 'warn', 4000); }
-  } else if (G.water > 25 && G.health < 100) G.health = Math.min(100, G.health + 0.9 * dt);
-  if (G.water > 20) G.thirstWarned = false;
-  if (storm > 0.6 && !sheltered && !G.mounted) {
-    G.health -= (cloak ? 0.18 : 0.6) * dt;
+  // no water to manage: health comes back on its own a few seconds after a hit
+  if (G.health < 100 && G.time - (G.lastHurt ?? -99) > 4) G.health = Math.min(100, G.health + (cloak ? 10 : 5) * dt * (sheltered ? 2 : 1));
+  if (storm > 0.6 && !sheltered && !G.mounted && G.health > 30) {
+    G.health -= (cloak ? 0.05 : 0.25) * dt;
     if (!G.shelterHint) { G.shelterHint = true; hud.toast('The storm flays your skin. Shelter under a condenser awning.', 'warn', 4000); }
   }
   // extraction countdown
@@ -835,7 +857,7 @@ function updatePlay(dt) {
   }
   if (G.health <= 0) {
     G.health = 0;
-    endGame(false, G.water <= 0 ? 'The sun drank you dry' : 'Lost to the storm', 'Plan routes between condensers and travel at night when the sand is cool.');
+    endGame(false, 'Lost to the sands', 'Rest on the rock to heal, and keep moving when the ground starts to boil.');
   }
   G.shake = Math.max(0, G.shake - dt * 1.2);
   G.hurtFlash = Math.max(0, G.hurtFlash - dt);
@@ -843,13 +865,11 @@ function updatePlay(dt) {
 
 function updateHUD() {
   const p = G.mounted ? skimmer.position : player.position;
-  hud.style('waterFill', 'width', `${(G.water / G.maxWater * 100).toFixed(1)}%`);
   const [objA, objB] = objectiveText();
   hud.set('objMain', objA); hud.set('objSub', objB);
   hud.style('healthFill', 'width', `${G.health.toFixed(1)}%`);
-  hud.set('waterNum', Math.ceil(G.water));
   hud.set('healthNum', Math.ceil(G.health));
-  hud.toggle('vitals', 'low', G.water < 25);
+  hud.toggle('vitals', 'low', G.health < 35);
   hud.style('noiseFill', 'width', `${Math.min(100, (G.noise || 0) * 90).toFixed(0)}%`);
   const nz = G.noise || 0;
   hud.set('noiseTag', nz === 0 ? (isRock(p.x, p.z) ? 'ROCK' : 'STILL') : nz < 0.15 ? 'SOFT' : nz < 0.4 ? 'STEPS' : nz < 0.7 ? 'LOUD' : 'ROARING');
@@ -883,7 +903,7 @@ function updateHUD() {
 
   // interaction prompt
   const it = G.interact;
-  const nearSkimmer = !G.mounted && !skimmer.destroyed && player.position.distanceTo(skimmer.position) < 4.5;
+  const nearSkimmer = !G.mounted && !skimmer.destroyed && Math.hypot(player.position.x - skimmer.position.x, player.position.z - skimmer.position.z) < 5.5 && skimmer.position.y - player.position.y < 4;
   if (it) {
     hud.toggle('prompt', 'hidden', false);
     hud.set('promptKey', it.time === Infinity ? '!' : 'E');
@@ -932,10 +952,10 @@ function adaptResolution() {
 function tutorialTick() {
   if (G.interact?.kind === 'shard') hint('shard', 'Hold E to harvest sunglass. Harvesting rings through the sand, so look around first.');
   if (creature.state === 'hunt' && creature.distanceTo < 300) hint('tremor', 'Tremors mean the Veil Ray is coming. Sneak (C), get onto rock, or plant a thrum stake (Q) to lure it away.', 7000);
-  if (G.water < 45) hint('water', 'Water is getting low. Condensers sit on the rock mesas, and caches hide in the open sand.');
-  if (G.cellFound && !G.mounted && G.time > 5) hint('skimmer', 'Your skimmer has power again. Press F near it to ride. Shift boosts, Space drifts.');
+  if (G.health < 60) hint('heal', 'You heal on your own a few seconds after a hit, and twice as fast at a condenser.');
+  if (G.cellFound && !G.mounted && G.time > 5) hint('skimmer', 'Press F near the skimmer to ride. Shift boosts, Space drifts. Press R any time to call it to you.');
   if (G.time > 90) hint('map', 'Press M for the large map. The tablets and the wreck are marked on it.');
-  if (sky.sunUp < 0.2) hint('night', 'Night is cool and saves your water, but the Veil Ray is bolder in the dark.');
+  if (sky.sunUp < 0.2) hint('night', 'Night has fallen. The Veil Ray is bolder in the dark, so tread lightly.');
   if (G.stormActive) hint('storm', 'Storms drown out your footsteps. It is the safest time to cross open sand.');
 }
 
@@ -1019,4 +1039,4 @@ requestAnimationFrame(() => {
 });
 
 // expose for debugging / automated checks
-window.__glasswind = { G, player, skimmer, creature, sky, startGame, camera, tracks, scene, terrainUniforms, ruins, wreckPos, condensers, beaconPos, nearestInteract, completeInteract, audio, saveGame, readSave, continueGame, perf, hint };
+window.__glasswind = { G, player, skimmer, creature, sky, startGame, camera, tracks, scene, terrainUniforms, ruins, wreckPos, condensers, beaconPos, nearestInteract, completeInteract, audio, cam, saveGame, readSave, continueGame, perf, hint };

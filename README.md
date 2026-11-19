@@ -8,16 +8,16 @@ An original low-poly, open-world desert survival game that runs in the browser, 
 
 ## The game
 
-You are a glass-runner dropped on Oshar, a desert world under a ringed gas giant. Harvest **20 shards of sunglass** (the glowing blue crystals in open sand), then reach the **signal beacon** and call your lift before the desert claims you.
+You are a glass-runner dropped on Oshar, a desert world under a ringed gas giant. Harvest **15 shards of sunglass** (the glowing blue crystals in open sand), then reach the **signal beacon** and call your lift before the desert claims you.
 
-- **Water is life.** It drains faster under the midday sun, when you sprint, and in storms. Refill at dew condensers on the rock mesas, or scavenge supply caches.
-- **The Veil Ray** is a ray the size of a cathedral that swims beneath the dunes and hunts by **vibration**. Footsteps, harvesting and above all the skimmer's engine draw it in. When the ground boils, sprint. It cannot reach you on rock.
+- **No water to manage.** You heal on your own a few seconds after a hit, and fully at dew condensers on the rock mesas. Supply caches hold med kits and thrum stakes.
+- **The Veil Ray** is a ray the size of a cathedral that swims beneath the dunes and hunts by **vibration**. Footsteps, harvesting and above all the skimmer's engine draw it in. When the ground boils, sprint. A hit hurts but won't kill you outright, and it cannot reach you on rock.
 - **Thrum stakes** pound the sand for 16 seconds and lure it away.
-- **Sand-skimmer**: fast, but loud. Outrun the ray or lead it straight to you.
-- **Day and night**: a 7-minute cycle. Nights are cool and easy on your water but dark.
+- **Sand-skimmer**: fast, but loud. Once it has power, press **R** and it flies to you from anywhere.
+- **Day and night**: a 7-minute cycle. Nights are dark, and the ray is bolder.
 - **Sandstorms** blind you and hurt you in the open, but they also muffle your noise.
 - **A story in four chapters**: restart the outpost condenser, pull a power cell from a crashed skimmer, read the five echo tablets in the ruins, and hold the beacon for 45 seconds while the lift comes down.
-- **Workbench upgrades** at condensers: trade sunglass for deeper flasks, hush wraps, a sealed cloak, a stake satchel, engine baffles or tremor sense.
+- **Workbench upgrades** at condensers: trade sunglass for glass plating, hush wraps, a sealed cloak, a stake satchel, engine baffles or tremor sense.
 - **Autosave**: progress saves every 20 seconds and when you leave, and **Continue** on the menu picks it up.
 - **Plays anywhere**: keyboard and mouse, gamepad, or touch controls on phones and tablets. Adaptive resolution keeps the frame rate steady on slower devices.
 
@@ -40,10 +40,11 @@ You are a glass-runner dropped on Oshar, a desert world under a ringed gas giant
 | E (hold) | Harvest, drink, open, call the lift |
 | F | Board or leave the skimmer |
 | Q | Plant a thrum stake |
+| R | Call the skimmer to you |
 | M | Large map |
 | Esc | Pause |
 
-**Gamepad:** left stick moves, right stick looks, A jump or drift, X use, Y board, B sneak, RT sprint or boost, LB stake, Back map, Start pause.
+**Gamepad:** left stick moves, right stick looks, A jump or drift, X use, Y board, B sneak, RT sprint or boost, LB stake, RB call skimmer, Back map, Start pause.
 
 **Touch:** drag the left side to move and the right side to look; on-screen buttons cover the rest.
 

@@ -29,7 +29,6 @@
     <div id="tremor" class="hidden"><div id="tremorArrow">▲</div><div id="tremorText">TREMORS</div></div>
 
     <div id="vitals">
-      <div class="bar"><span class="lbl">WATER</span><div class="track"><div id="waterFill" class="fill water"></div></div><span id="waterNum" class="num">100</span></div>
       <div class="bar"><span class="lbl">HEALTH</span><div class="track"><div id="healthFill" class="fill health"></div></div><span id="healthNum" class="num">100</span></div>
       <div class="bar vib"><span class="lbl">NOISE</span><div class="track"><div id="noiseFill" class="fill noise"></div></div><span id="noiseTag" class="num">QUIET</span></div>
     </div>
@@ -72,9 +71,9 @@
           <h3>Your contract</h3>
           <p>Harvest <b><span class="goalN">20</span> shards of sunglass</b>, the glowing blue crystals that grow in open sand. Then reach the <b>signal beacon</b>, the orange light pillar to the south-east, and call your lift.</p>
           <h3>Stay alive</h3>
-          <p>Water drains fast under the sun. Refill at <b>dew condensers</b> on the rock mesas and scavenge <b>supply caches</b>. Night is cool and kind to your water.</p>
+          <p>No water to worry about. You heal on your own a few seconds after a hit, and fully at <b>condensers</b> on the rock mesas. <b>Supply caches</b> hold med kits and thrum stakes. Lost your skimmer? Press <b>R</b> and it flies to you.</p>
           <h3>The Veil Ray</h3>
-          <p>A ray the size of a cathedral swims under the dunes and hunts by <b>vibration</b>. Running, harvesting and the skimmer's engine all make noise. When the ground boils beneath you, <b>sprint</b>. It cannot reach you on <b>rock</b>. Sandstorms muffle your footsteps.</p>
+          <p>A ray the size of a cathedral swims under the dunes and hunts by <b>vibration</b>. Running, harvesting and the skimmer's engine all make noise. When the ground boils beneath you, <b>sprint</b>. A hit hurts but will not kill you outright. It cannot reach you on <b>rock</b>. Sandstorms muffle your footsteps.</p>
           <p>Plant a <b>thrum stake</b> to lure it away.</p>
         </div>
         <div>
@@ -88,9 +87,10 @@
             <tr><td>E (hold)</td><td>Harvest / use / drink</td></tr>
             <tr><td>F</td><td>Board or leave the skimmer</td></tr>
             <tr><td>Q</td><td>Plant a thrum stake</td></tr>
+            <tr><td>R</td><td>Call the skimmer to you</td></tr>
             <tr><td>M</td><td>Toggle large map</td></tr>
             <tr><td>Esc</td><td>Pause</td></tr>
-            <tr><td>Gamepad</td><td>Sticks move and look · A jump · X use · Y board · B sneak · RT sprint · LB stake · Start pause</td></tr>
+            <tr><td>Gamepad</td><td>Sticks move and look · A jump · X use · Y board · B sneak · RT sprint · LB stake · RB call skimmer · Start pause</td></tr>
             <tr><td>Touch</td><td>Left side moves, right side looks, buttons for the rest</td></tr>
           </table>
         </div>
@@ -119,7 +119,7 @@
     <div class="menuInner wide">
       <div class="kicker">OUTPOST WORKBENCH</div>
       <h2>Trade sunglass for gear</h2>
-      <p class="benchNote">Water refilled. You carry <b>◆ <span id="benchShards">0</span></b> sunglass. The beacon needs <b>20</b> on hand when you call the lift, so spend with care.</p>
+      <p class="benchNote">Fully healed. You carry <b>◆ <span id="benchShards">0</span></b> sunglass. The beacon needs <b><span class="goalN">20</span></b> on hand when you call the lift, so spend with care.</p>
       <div id="benchList"></div>
       <button id="benchClose" class="primary back">Back to the sands</button>
     </div>

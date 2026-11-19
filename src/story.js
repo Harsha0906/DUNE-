@@ -16,9 +16,9 @@ export const TABLETS = [
 ];
 
 export const UPGRADES = [
-  { id: 'flasks', name: 'Deep flasks', desc: 'Carry 50% more water.', cost: 3 },
+  { id: 'plating', name: 'Glass plating', desc: 'Veil Ray hits hurt 40% less.', cost: 3 },
   { id: 'wraps', name: 'Hush wraps', desc: 'Footsteps are 40% quieter.', cost: 3 },
-  { id: 'cloak', name: 'Sealed cloak', desc: 'Storms barely hurt you or dry you out.', cost: 3 },
+  { id: 'cloak', name: 'Sealed cloak', desc: 'Storms barely hurt you, and you heal twice as fast.', cost: 3 },
   { id: 'satchel', name: 'Stake satchel', desc: 'Two extra thrum stakes, and you can carry six.', cost: 2 },
   { id: 'baffles', name: 'Engine baffles', desc: 'The skimmer runs 35% quieter.', cost: 4 },
   { id: 'sense', name: 'Tremor sense', desc: 'Always see the Veil Ray on the compass and map.', cost: 4 },
