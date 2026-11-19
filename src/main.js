@@ -235,7 +235,7 @@ function resetGame() {
   setBeaconCharged(false);
   cam.yaw = Math.PI * 0.85; cam.pitch = 0.25;
   hud.clearToasts();
-  G.hints = new Set(); G.satchelGiven = false; G.sawDisplay = false; G.autosave = 20;
+  G.hints = new Set(); G.rodeSkimmer = false; G.satchelGiven = false; G.sawDisplay = false; G.autosave = 20;
 }
 
 function setBeaconCharged(on) {
@@ -331,7 +331,7 @@ function saveGame() {
     v: 1, at: Date.now(),
     water: G.water, health: G.health, shards: G.shards, stakes: G.stakes, time: G.time, days: G.days,
     chapter: G.chapter, upgrades: [...G.upgrades], cellFound: G.cellFound, tabletsRead: G.tabletsRead,
-    satchelGiven: !!G.satchelGiven, sawDisplay: !!G.sawDisplay, hints: [...G.hints],
+    satchelGiven: !!G.satchelGiven, rodeSkimmer: !!G.rodeSkimmer, sawDisplay: !!G.sawDisplay, hints: [...G.hints],
     taken: shards.map((x, i) => (x.taken ? i : -1)).filter((i) => i >= 0),
     caches: caches.map((x, i) => (x.taken ? i : -1)).filter((i) => i >= 0),
     ruins: ruins.map((x, i) => (x.read ? i : -1)).filter((i) => i >= 0),
@@ -341,7 +341,7 @@ function saveGame() {
 }
 function applySave(d) {
   Object.assign(G, { water: d.water, health: d.health, shards: d.shards, stakes: d.stakes, time: d.time, days: d.days,
-    chapter: d.chapter, cellFound: d.cellFound, tabletsRead: d.tabletsRead, satchelGiven: d.satchelGiven, sawDisplay: d.sawDisplay });
+    chapter: d.chapter, cellFound: d.cellFound, tabletsRead: d.tabletsRead, satchelGiven: d.satchelGiven, rodeSkimmer: d.rodeSkimmer ?? true, sawDisplay: d.sawDisplay });
   G.upgrades = new Set(d.upgrades); G.hints = new Set(d.hints || []);
   for (const i of d.taken) if (shards[i]) { shards[i].taken = true; shards[i].mesh.visible = false; }
   for (const i of d.caches) if (caches[i]) { caches[i].taken = true; caches[i].mesh.visible = false; }
@@ -379,7 +379,11 @@ function objectiveText() {
   switch (G.chapter) {
     case 0: return ['Drink at the outpost condenser', 'Hold E under the awning'];
     case 1: return ['Recover the power cell', 'From the crashed skimmer (white marker)'];
-    case 2: return [`Gather sunglass: ${G.shards} / ${GOAL}`, `Echo tablets read: ${G.tabletsRead} / ${TABLETS.length} · Spend sunglass on gear at condensers`];
+    case 2: if (G.cellFound && !G.rodeSkimmer && !skimmer.destroyed) {
+        const d = Math.round(Math.hypot(skimmer.position.x - player.position.x, skimmer.position.z - player.position.z));
+        return ['Return to your skimmer', `Follow the ▣ on the compass, ${d}m · Press F beside it to ride`];
+      }
+      return [`Gather sunglass: ${G.shards} / ${GOAL}`, `Echo tablets read: ${G.tabletsRead} / ${TABLETS.length} · Spend sunglass on gear at condensers`];
     case 3: if (!G.extracting && G.shards < GOAL) return [`Gather sunglass: ${G.shards} / ${GOAL}`, 'You spent some at the workbench'];
       return G.extracting ? [`Hold the beacon: ${Math.ceil(G.extractT)}s`, 'Stay close. The lift is coming.'] : ['Reach the beacon and call the lift', 'Follow the cyan light pillar'];
     default: return ['', ''];
@@ -533,7 +537,7 @@ function completeInteract(it) {
       G.cellFound = true;
       wreck.userData.cell.visible = false;
       audio.pickup();
-      hud.toast('Power cell recovered. Your skimmer will fly again (F to board).', 'good', 4500);
+      hud.toast('Power cell recovered. Head back to your skimmer (▣ on the compass) and press F to ride.', 'good', 6000);
       setChapter(2);
       break;
     case 'beacon':
@@ -620,6 +624,7 @@ function toggleMount() {
     hud.toast('The skimmer is dead. Its power cell was in the crashed skimmer.', '', 3000);
   } else if (!skimmer.destroyed && player.position.distanceTo(skimmer.position) < 4.5) {
     G.mounted = true;
+    G.rodeSkimmer = true;
     G.savedDistance = player.distance;
     skimmer.driven = true;
     cam.dist = 12;
@@ -868,7 +873,7 @@ function updateHUD() {
   let best = null, bd = Infinity;
   for (const c of condensers) { const d = Math.hypot(c.pos.x - p.x, c.pos.z - p.z); if (d < bd && d > 8) { bd = d; best = c; } }
   if (best) marks.con = { b: bearing(best.pos.x - p.x, best.pos.z - p.z), cls: 'con', icon: '💧' };
-  if (!G.mounted && !skimmer.destroyed) marks.ski = { b: bearing(skimmer.position.x - p.x, skimmer.position.z - p.z), cls: 'ski', icon: '▣' };
+  if (!G.mounted && !skimmer.destroyed) marks.ski = { b: bearing(skimmer.position.x - p.x, skimmer.position.z - p.z), cls: G.cellFound && !G.rodeSkimmer ? 'ski obj' : 'ski', icon: '▣' };
   const rayB = bearing(creature.pos.x - p.x, creature.pos.y - p.z);
   const hunting = (['hunt', 'warn'].includes(creature.state) && creature.distanceTo < 300) || (G.upgrades.has('sense') && creature.distanceTo < 500);
   if (hunting) marks.ray = { b: rayB, cls: 'ray', icon: '≋' };
